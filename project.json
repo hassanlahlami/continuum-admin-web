@@ -1,0 +1,9 @@
+{
+  "name": "admin",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/admin/src",
+  "prefix": "ct",
+  "tags": ["platform:admin", "type:app"],
+  "//": "Plateforme Admin Système (continuum-admin-web, plan §4.1). Thème neutre + logo du tenant (§1.6.3)."
+}
