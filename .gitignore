@@ -13,6 +13,11 @@ tmp/
 .angular/
 *.tsbuildinfo
 
+# --- Clients générés (D32) : régénérés depuis les contrats (npm run generate:*), jamais versionnés ---
+libs/api-clients/*
+!libs/api-clients/project.json
+libs/.contracts/
+
 # --- Tests ---
 coverage/
 apps/*-e2e/cypress/videos/
