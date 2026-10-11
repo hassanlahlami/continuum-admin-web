@@ -3,6 +3,8 @@
  */
 export const environment = {
   production: false,
+  /** true = mocks MSW (sans backend/login) ; false = vrai backend + login OIDC (environment.live.ts). */
+  useMocks: true,
   /** Émetteur OIDC (realm Keycloak), §4.5. :8180 = Keycloak de la simulation. */
   oidcIssuer: 'http://localhost:8180/realms/banque-demo',
   /** Préfixe de l'API d'administration, §4.3.3 (proxy de dev → backend :8080). */

@@ -35,3 +35,8 @@ apps/*-e2e/cypress/downloads/
 *.iml
 .DS_Store
 Thumbs.db
+
+# --- Cypress runtime artefacts (e2e/) ---
+e2e/cypress/screenshots/
+e2e/cypress/videos/
+e2e/cypress/downloads/

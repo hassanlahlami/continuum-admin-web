@@ -18,25 +18,25 @@ import { AssignmentInput, AssignmentsService } from '../../../libs/api-clients/a
       <h1>Affecter une position</h1>
       <form class="form" (submit)="$event.preventDefault(); submit()">
         <label>Utilisateur (UUID)
-          <input name="userId" [(ngModel)]="userId" required /></label>
+          <input name="userId" data-cy="assign-user" [(ngModel)]="userId" required /></label>
         <label>Position (UUID)
-          <input name="positionId" [(ngModel)]="positionId" required /></label>
+          <input name="positionId" data-cy="assign-position" [(ngModel)]="positionId" required /></label>
         <label>Unité (UUID)
-          <input name="unitId" [(ngModel)]="unitId" /></label>
+          <input name="unitId" data-cy="assign-unit" [(ngModel)]="unitId" /></label>
         <label>Type
-          <select name="kind" [(ngModel)]="kind">
+          <select name="kind" data-cy="assign-kind" [(ngModel)]="kind">
             <option value="HOLDER">Titulaire</option>
             <option value="INTERIM">Intérim</option>
             <option value="DELEGATION">Délégation</option>
           </select></label>
-        <button type="submit" [disabled]="busy()">Affecter</button>
+        <button type="submit" data-cy="assign-submit" [disabled]="busy()">Affecter</button>
       </form>
 
       @if (ok(); as o) {
-        <p class="ok" role="status">✓ Affectation créée — id {{ o.id }} (état {{ o.state }}).</p>
+        <p class="ok" role="status" data-cy="assign-ok">✓ Affectation créée — id {{ o.id }} (état {{ o.state }}).</p>
       }
       @if (error(); as e) {
-        <p class="err" role="alert">✗ Refus (HTTP {{ e.status }}) : {{ e.message }}</p>
+        <p class="err" role="alert" data-cy="assign-error">✗ Refus (HTTP {{ e.status }}) : {{ e.message }}</p>
       }
     </section>
   `,
