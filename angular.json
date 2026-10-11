@@ -17,11 +17,23 @@
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.build.json",
+            "assets": [{ "glob": "**/*", "input": "public" }],
             "styles": ["src/styles.css"]
           },
           "configurations": {
             "production": { "optimization": true, "outputHashing": "all" },
-            "development": { "optimization": false, "sourceMap": true, "namedChunks": true }
+            "development": { "optimization": false, "sourceMap": true, "namedChunks": true },
+            "live": {
+              "optimization": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.live.ts"
+                }
+              ]
+            }
           },
           "defaultConfiguration": "development"
         },
@@ -33,7 +45,8 @@
           },
           "configurations": {
             "production": { "buildTarget": "admin-web:build:production" },
-            "development": { "buildTarget": "admin-web:build:development" }
+            "development": { "buildTarget": "admin-web:build:development" },
+            "live": { "buildTarget": "admin-web:build:live" }
           },
           "defaultConfiguration": "development"
         }
