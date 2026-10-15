@@ -1,6 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { inject, provideAppInitializer } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
 import { OAuthService, provideOAuthClient } from 'angular-oauth2-oidc';
 import { BASE_PATH } from '../libs/api-clients/admin-iam';
@@ -29,6 +30,7 @@ startMocksInDev()
     bootstrapApplication(AppComponent, {
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
+        provideAnimationsAsync(),
         provideRouter(routes),
         provideOAuthClient(),
         { provide: BASE_PATH, useValue: environment.apiBaseUrl },
