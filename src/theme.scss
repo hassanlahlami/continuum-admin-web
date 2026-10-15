@@ -1,0 +1,41 @@
+// Thème Angular Material (M3) ponté sur les tokens --ct-* du projet (§1.6) — identique à app-web
+// (ui-kit dupliqué, REPOS.md). `mat.theme()` émet les variables système Material, puis on les re-pointe
+// vers les tokens sémantiques --ct-* (styles.css / thème tenant), pour que les composants Material
+// héritent de la charte Continuum sans valeur visuelle en dur.
+@use '@angular/material' as mat;
+
+html {
+  @include mat.theme((
+    color: (
+      theme-type: light,
+      primary: mat.$azure-palette,
+      tertiary: mat.$blue-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+
+  --mat-sys-primary: var(--ct-color-primary);
+  --mat-sys-on-primary: var(--ct-color-primary-contrast);
+  --mat-sys-primary-container: var(--ct-color-primary-soft);
+  --mat-sys-on-primary-container: var(--ct-color-primary);
+
+  --mat-sys-background: var(--ct-color-bg);
+  --mat-sys-on-background: var(--ct-color-text);
+  --mat-sys-surface: var(--ct-color-surface);
+  --mat-sys-surface-container-low: var(--ct-color-surface);
+  --mat-sys-surface-container: var(--ct-color-surface-alt);
+  --mat-sys-surface-container-high: var(--ct-color-surface-alt);
+  --mat-sys-surface-container-highest: var(--ct-color-surface-alt);
+  --mat-sys-on-surface: var(--ct-color-text);
+  --mat-sys-on-surface-variant: var(--ct-color-muted);
+
+  --mat-sys-outline: var(--ct-color-border);
+  --mat-sys-outline-variant: var(--ct-color-border);
+  --mat-sys-error: var(--ct-red-700);
+
+  --mat-sys-corner-extra-small: var(--ct-radius-sm);
+  --mat-sys-corner-small: var(--ct-radius-sm);
+  --mat-sys-corner-medium: var(--ct-radius-md);
+  --mat-sys-corner-large: var(--ct-radius-lg);
+}

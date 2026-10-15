@@ -1,52 +1,72 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { AssignmentInput, AssignmentsService } from '../../../libs/api-clients/admin-iam';
 
 /**
  * Page « Affecter une position » (ADM, §2.1.3) : l'administrateur octroie une position à un
  * utilisateur sur une unité. Appelle `POST /api/admin/assignments` via le client **généré** (D32) ;
  * le backend applique anti-auto-octroi, SoD statique (409) et validations (422). Le front n'enforce
- * aucune règle : il affiche la décision du serveur.
+ * aucune règle : il affiche la décision du serveur. Composants Material habillés par les tokens --ct-*.
  */
 @Component({
   selector: 'ct-assign-position',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
   template: `
     <section>
       <h1>Affecter une position</h1>
-      <form class="form" (submit)="$event.preventDefault(); submit()">
-        <label>Utilisateur (UUID)
-          <input name="userId" data-cy="assign-user" [(ngModel)]="userId" required /></label>
-        <label>Position (UUID)
-          <input name="positionId" data-cy="assign-position" [(ngModel)]="positionId" required /></label>
-        <label>Unité (UUID)
-          <input name="unitId" data-cy="assign-unit" [(ngModel)]="unitId" /></label>
-        <label>Type
-          <select name="kind" data-cy="assign-kind" [(ngModel)]="kind">
-            <option value="HOLDER">Titulaire</option>
-            <option value="INTERIM">Intérim</option>
-            <option value="DELEGATION">Délégation</option>
-          </select></label>
-        <button type="submit" data-cy="assign-submit" [disabled]="busy()">Affecter</button>
-      </form>
+      <mat-card appearance="outlined">
+        <mat-card-content>
+          <form class="form" (submit)="$event.preventDefault(); submit()">
+            <mat-form-field appearance="outline">
+              <mat-label>Utilisateur (UUID)</mat-label>
+              <input matInput name="userId" data-cy="assign-user" [(ngModel)]="userId" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Position (UUID)</mat-label>
+              <input matInput name="positionId" data-cy="assign-position" [(ngModel)]="positionId" required />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Unité (UUID)</mat-label>
+              <input matInput name="unitId" data-cy="assign-unit" [(ngModel)]="unitId" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Type</mat-label>
+              <mat-select name="kind" data-cy="assign-kind" [(ngModel)]="kind">
+                <mat-option value="HOLDER">Titulaire</mat-option>
+                <mat-option value="INTERIM">Intérim</mat-option>
+                <mat-option value="DELEGATION">Délégation</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <div class="actions">
+              <button mat-flat-button color="primary" type="submit" data-cy="assign-submit" [disabled]="busy()">Affecter</button>
+            </div>
+          </form>
 
-      @if (ok(); as o) {
-        <p class="ok" role="status" data-cy="assign-ok">✓ Affectation créée — id {{ o.id }} (état {{ o.state }}).</p>
-      }
-      @if (error(); as e) {
-        <p class="err" role="alert" data-cy="assign-error">✗ Refus (HTTP {{ e.status }}) : {{ e.message }}</p>
-      }
+          @if (ok(); as o) {
+            <p class="ok" role="status" data-cy="assign-ok">✓ Affectation créée — id {{ o.id }} (état {{ o.state }}).</p>
+          }
+          @if (error(); as e) {
+            <p class="err" role="alert" data-cy="assign-error">✗ Refus (HTTP {{ e.status }}) : {{ e.message }}</p>
+          }
+        </mat-card-content>
+      </mat-card>
     </section>
   `,
-  styles: [`
-    .form { display: grid; gap: var(--ct-space-3); max-width: 480px; }
-    .form label { display: grid; gap: var(--ct-space-1); font-size: 0.85rem; color: var(--ct-color-muted); }
-    .form input, .form select { padding: 9px 12px; font: inherit; border: 1px solid var(--ct-color-border); border-radius: var(--ct-button-radius); background: var(--ct-color-surface); color: var(--ct-color-text); }
-    .ok { color: var(--ct-green-600); font-weight: 600; }
-    .err { color: var(--ct-color-danger-text, #a1281c); font-weight: 600; }
-  `],
+  styles: [
+    `
+      .form { display: grid; gap: var(--ct-space-2); max-width: 480px; }
+      .actions { margin-top: var(--ct-space-2); }
+      .ok { color: var(--ct-green-600); font-weight: 600; }
+      .err { color: var(--ct-red-700); font-weight: 600; }
+    `,
+  ],
 })
 export class AssignPositionPage {
   private readonly assignments = inject(AssignmentsService);
