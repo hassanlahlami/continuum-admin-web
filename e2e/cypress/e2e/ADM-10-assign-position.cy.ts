@@ -22,6 +22,14 @@ describe('ADM-10 — Affecter une position', () => {
     cy.get('[data-cy=assign-ok]').should('not.exist');
   });
 
+  it('bascule le thème (clair / sombre)', () => {
+    cy.visit('/');
+    cy.get('[data-cy=theme-toggle]').click(); // auto -> clair
+    cy.get('html').should('have.attr', 'data-theme', 'light');
+    cy.get('[data-cy=theme-toggle]').click(); // clair -> sombre
+    cy.get('html').should('have.attr', 'data-theme', 'dark');
+  });
+
   it('affiche le refus de validation / auto-octroi (422)', () => {
     cy.visit('/');
     cy.get('[data-cy=assign-user]').clear().type(invalidUser);
