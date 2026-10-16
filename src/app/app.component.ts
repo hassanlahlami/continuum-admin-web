@@ -56,6 +56,10 @@ import { map } from 'rxjs/operators';
           }
           <span class="app-bar-title">Administration Système</span>
           <span class="spacer"></span>
+          <button mat-icon-button (click)="cycleTheme()" data-cy="theme-toggle"
+                  [attr.aria-label]="'Thème : ' + theme()">
+            <mat-icon>{{ themeIcon() }}</mat-icon>
+          </button>
           @if (displayName(); as name) {
             <div class="user" data-cy="app-user"><strong>{{ name }}</strong><span>Admin Système</span></div>
           }
@@ -92,6 +96,7 @@ import { map } from 'rxjs/operators';
 })
 export class AppComponent {
   private readonly oauth = inject(OAuthService);
+  readonly theme = signal<'auto' | 'light' | 'dark'>(this.readTheme());
   readonly isHandset = toSignal(
     inject(BreakpointObserver)
       .observe([Breakpoints.Handset, Breakpoints.TabletPortrait])
@@ -101,10 +106,45 @@ export class AppComponent {
 
   constructor() {
     inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');
+    this.applyTheme();
   }
 
   displayName(): string | null {
     const claims = this.oauth.getIdentityClaims() as { name?: string; preferred_username?: string } | null;
     return claims?.name ?? claims?.preferred_username ?? null;
+  }
+
+  /** Bascule la préférence de thème : auto → clair → sombre → auto (parité app-web). */
+  cycleTheme(): void {
+    const next = this.theme() === 'auto' ? 'light' : this.theme() === 'light' ? 'dark' : 'auto';
+    this.theme.set(next);
+    try {
+      localStorage.setItem('ct-theme', next);
+    } catch {
+      // stockage indisponible
+    }
+    this.applyTheme();
+  }
+
+  themeIcon(): string {
+    return this.theme() === 'light' ? 'light_mode' : this.theme() === 'dark' ? 'dark_mode' : 'brightness_auto';
+  }
+
+  private readTheme(): 'auto' | 'light' | 'dark' {
+    try {
+      const v = localStorage.getItem('ct-theme');
+      return v === 'light' || v === 'dark' ? v : 'auto';
+    } catch {
+      return 'auto';
+    }
+  }
+
+  private applyTheme(): void {
+    const el = document.documentElement;
+    if (this.theme() === 'auto') {
+      delete el.dataset.theme;
+    } else {
+      el.dataset.theme = this.theme();
+    }
   }
 }

@@ -300,3 +300,37 @@ tbody tr:hover { background: var(--ct-color-primary-soft); }
   border-radius: var(--ct-radius-md);
 }
 .api-error button { margin-left: auto; border: none; background: transparent; color: inherit; }
+
+/* ———————————————————————————— Mode sombre (parité app-web) ————————————————————————————
+ * Surcharge des tokens sémantiques --ct-* en sombre ; propagée à Material par theme.scss.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --ct-color-bg: #0e1621;
+    --ct-color-surface: #16202b;
+    --ct-color-surface-alt: #1e2a37;
+    --ct-color-text: #e6edf3;
+    --ct-color-muted: #94a3b4;
+    --ct-color-border: #2a3a49;
+    --ct-color-primary: #4d9bff;
+    --ct-color-primary-hover: #6fb0ff;
+    --ct-color-primary-contrast: #0b1118;
+    --ct-color-primary-soft: #16304a;
+    --ct-green-600: #56d08a; --ct-red-700: #ff8f85;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ct-color-bg: #0e1621;
+  --ct-color-surface: #16202b;
+  --ct-color-surface-alt: #1e2a37;
+  --ct-color-text: #e6edf3;
+  --ct-color-muted: #94a3b4;
+  --ct-color-border: #2a3a49;
+  --ct-color-primary: #4d9bff;
+  --ct-color-primary-hover: #6fb0ff;
+  --ct-color-primary-contrast: #0b1118;
+  --ct-color-primary-soft: #16304a;
+  --ct-green-600: #56d08a; --ct-red-700: #ff8f85;
+}
