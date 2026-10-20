@@ -7,7 +7,7 @@ import { OAuthService, provideOAuthClient } from 'angular-oauth2-oidc';
 import { BASE_PATH } from '../libs/api-clients/admin-iam';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
-import { authConfig } from './app/auth/auth.config';
+import { buildAuthConfig } from './app/auth/auth.config';
 import { authInterceptor } from './app/auth/auth.interceptor';
 import { environment } from './environments/environment';
 
@@ -25,18 +25,50 @@ async function startMocksInDev(): Promise<void> {
   }
 }
 
+/**
+ * Configuration d'exécution **par installation** (on-premise, D26) : un seul artefact buildé, dont
+ * l'issuer OIDC et l'URL d'API sont fixés par `config.json` servi à la racine — édité par l'intégrateur
+ * sans reconstruction. Les valeurs du build (`environment.*`) servent de défauts si le fichier est
+ * absent ou illisible. Patron identique à `continuum-app-web`.
+ */
+interface RuntimeConfig {
+  oidcIssuer: string;
+  apiBaseUrl: string;
+}
+
+async function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  const defaults: RuntimeConfig = {
+    oidcIssuer: environment.oidcIssuer,
+    apiBaseUrl: environment.apiBaseUrl,
+  };
+  try {
+    const res = await fetch(new URL('config.json', document.baseURI).href, { cache: 'no-store' });
+    if (!res.ok) {
+      return defaults;
+    }
+    const raw = (await res.json()) as Partial<RuntimeConfig>;
+    return {
+      oidcIssuer: typeof raw.oidcIssuer === 'string' && raw.oidcIssuer ? raw.oidcIssuer : defaults.oidcIssuer,
+      apiBaseUrl: typeof raw.apiBaseUrl === 'string' && raw.apiBaseUrl ? raw.apiBaseUrl : defaults.apiBaseUrl,
+    };
+  } catch {
+    return defaults; // config.json absent/illisible : on garde les valeurs du build
+  }
+}
+
 startMocksInDev()
-  .then(() =>
+  .then(loadRuntimeConfig)
+  .then((config) =>
     bootstrapApplication(AppComponent, {
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
         provideAnimationsAsync(),
         provideRouter(routes),
         provideOAuthClient(),
-        { provide: BASE_PATH, useValue: environment.apiBaseUrl },
+        { provide: BASE_PATH, useValue: config.apiBaseUrl },
         provideAppInitializer(() => {
           const oauth = inject(OAuthService);
-          oauth.configure(authConfig);
+          oauth.configure(buildAuthConfig(config.oidcIssuer));
           // Mode mock : best-effort (démarre sans Keycloak). Live : connexion exigée (§4.5).
           return environment.useMocks
             ? oauth.loadDiscoveryDocumentAndTryLogin().catch(() => true)
