@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "compile:templates": "ngc -p tsconfig.app.json",
     "generate:admin-iam": "openapi-generator-cli generate -i ../continuum-backend/src/main/openapi/admin-iam.bundled.yaml -g typescript-angular -o libs/api-clients/admin-iam --additional-properties=ngVersion=19.0.0,supportsES6=true,withInterfaces=true",
+    "generate:operations": "openapi-generator-cli generate -i ../continuum-backend/src/main/openapi/operations.bundled.yaml -g typescript-angular -o libs/api-clients/operations --additional-properties=ngVersion=19.0.0,supportsES6=true,withInterfaces=true",
     "start": "ng serve --port 4201",
     "serve:mock": "ng serve --port 4201",
     "serve:live": "ng serve --configuration live --port 4201",
