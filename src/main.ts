@@ -5,6 +5,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideRouter } from '@angular/router';
 import { OAuthService, provideOAuthClient } from 'angular-oauth2-oidc';
 import { BASE_PATH } from '../libs/api-clients/admin-iam';
+import { BASE_PATH as OPERATIONS_BASE_PATH } from '../libs/api-clients/operations';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { buildAuthConfig } from './app/auth/auth.config';
@@ -66,6 +67,7 @@ startMocksInDev()
         provideRouter(routes),
         provideOAuthClient(),
         { provide: BASE_PATH, useValue: config.apiBaseUrl },
+        { provide: OPERATIONS_BASE_PATH, useValue: config.apiBaseUrl },
         provideAppInitializer(() => {
           const oauth = inject(OAuthService);
           oauth.configure(buildAuthConfig(config.oidcIssuer));

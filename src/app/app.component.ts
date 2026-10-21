@@ -49,6 +49,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">badge</mat-icon>
             <span matListItemTitle>Affectations</span>
           </a>
+          <a mat-list-item routerLink="/audit-trail" routerLinkActive="active-nav"
+             data-cy="nav-audit-trail"
+             [matTooltip]="collapsed() && !isHandset() ? 'Piste d\\'audit' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">receipt_long</mat-icon>
+            <span matListItemTitle>Piste d'audit</span>
+          </a>
         </mat-nav-list>
       </mat-sidenav>
 
