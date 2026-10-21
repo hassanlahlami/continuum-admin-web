@@ -12,7 +12,7 @@ html {
       tertiary: mat.$blue-palette,
     ),
     typography: Roboto,
-    density: 0,
+    density: -1, // « épuré & dense » : composants plus compacts (inputs, tables, boutons, chips)
   ));
 
   // Encapsulé dans `& {}` : déclarations après la règle imbriquée `mat.theme()` (évite l'avertissement
