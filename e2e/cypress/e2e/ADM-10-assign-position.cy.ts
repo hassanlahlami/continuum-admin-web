@@ -8,14 +8,14 @@ describe('ADM-10 — Affecter une position', () => {
   const invalidUser = '00000000-0000-0000-0000-000000000422';
 
   it('crée une affectation (décision serveur : acceptée)', () => {
-    cy.visit('/');
+    cy.visit('/assignments');
     cy.get('[data-cy=assign-submit]').click();
     cy.get('[data-cy=assign-ok]').should('contain', 'Affectation créée').and('contain', 'ACTIVE');
     cy.get('[data-cy=assign-error]').should('not.exist');
   });
 
   it('affiche le refus SoD statique (409) décidé par le serveur', () => {
-    cy.visit('/');
+    cy.visit('/assignments');
     cy.get('[data-cy=assign-user]').clear().type(sodUser);
     cy.get('[data-cy=assign-submit]').click();
     cy.get('[data-cy=assign-error]').should('contain', '409').and('contain', 'SoD');
@@ -23,7 +23,7 @@ describe('ADM-10 — Affecter une position', () => {
   });
 
   it('bascule le thème (clair / sombre)', () => {
-    cy.visit('/');
+    cy.visit('/assignments');
     cy.get('[data-cy=theme-toggle]').click(); // auto -> clair
     cy.get('html').should('have.attr', 'data-theme', 'light');
     cy.get('[data-cy=theme-toggle]').click(); // clair -> sombre
@@ -31,7 +31,7 @@ describe('ADM-10 — Affecter une position', () => {
   });
 
   it('affiche le refus de validation / auto-octroi (422)', () => {
-    cy.visit('/');
+    cy.visit('/assignments');
     cy.get('[data-cy=assign-user]').clear().type(invalidUser);
     cy.get('[data-cy=assign-submit]').click();
     cy.get('[data-cy=assign-error]').should('contain', '422').and('contain', 'octroi');
