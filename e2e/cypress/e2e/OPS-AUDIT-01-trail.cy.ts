@@ -16,6 +16,20 @@ describe('OPS-AUDIT-01 — Piste d\'audit des opérations', () => {
       .and('contain', 'SOD-VIREMENTS');
   });
 
+  it('déplie le détail avant→après d’un événement', () => {
+    cy.visit('/audit-trail');
+    cy.get('[data-cy=audit-detail]').should('not.exist');
+    cy.get('[data-cy=audit-row]').first().click();
+    cy.get('[data-cy=audit-detail]')
+      .should('be.visible')
+      .and('contain', 'status')
+      .and('contain', 'OUVERT')
+      .and('contain', 'VALIDATED');
+    // deuxième clic : repli
+    cy.get('[data-cy=audit-row]').first().click();
+    cy.get('[data-cy=audit-detail]').should('not.exist');
+  });
+
   it('filtre par type d’événement (reflété dans l’URL, filtrage serveur)', () => {
     cy.visit('/audit-trail');
     // force: la mat-label flottante recouvre le champ outline vide (quirk Cypress/Material).
