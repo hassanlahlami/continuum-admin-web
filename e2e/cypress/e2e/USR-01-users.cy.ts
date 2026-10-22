@@ -9,7 +9,7 @@ describe('USR-01 — Utilisateurs', () => {
   it('affiche l’annuaire (parcours nominal)', () => {
     cy.visit('/');
     cy.get('[data-cy=users-table]').should('exist');
-    cy.get('[data-cy=user-row]').should('have.length', 5);
+    cy.get('[data-cy=user-row]').should('have.length', 7);
     cy.get('[data-cy=users-table]').should('contain', 'Inès Gendron').and('contain', 'ines.gendron');
   });
 
