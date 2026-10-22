@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -8,8 +8,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatTableModule } from '@angular/material/table';
-import { AuditEventPage, AuditTrailService } from '../../../libs/api-clients/operations';
+import { MatTable, MatTableModule } from '@angular/material/table';
+import { AuditEventPage, AuditEventPageAllOfItems as AuditEvent, AuditTrailService } from '../../../libs/api-clients/operations';
 
 /**
  * Piste d'audit des opérations (Admin Système, §2.3/§10) : qui a fait quoi, quand, sur quel objet —
@@ -64,14 +64,25 @@ import { AuditEventPage, AuditTrailService } from '../../../libs/api-clients/ope
       @if (page(); as p) {
         @if (p.items.length) {
           <mat-card appearance="outlined" class="table-card">
-            <table mat-table [dataSource]="p.items" data-cy="audit-table">
+            <table mat-table [dataSource]="p.items" multiTemplateDataRows data-cy="audit-table">
+              <ng-container matColumnDef="expand">
+                <th mat-header-cell *matHeaderCellDef aria-label="Détail"></th>
+                <td mat-cell *matCellDef="let e">
+                  @if (hasDiff(e)) {
+                    <mat-icon class="chev" [class.open]="isExpanded(e)">chevron_right</mat-icon>
+                  }
+                </td>
+              </ng-container>
               <ng-container matColumnDef="at">
                 <th mat-header-cell *matHeaderCellDef>Date</th>
                 <td mat-cell *matCellDef="let e">{{ e.at | date: 'dd/MM/yyyy HH:mm' }}</td>
               </ng-container>
               <ng-container matColumnDef="actor">
                 <th mat-header-cell *matHeaderCellDef>Acteur</th>
-                <td mat-cell *matCellDef="let e">{{ e.actor?.displayName ?? '—' }}</td>
+                <td mat-cell *matCellDef="let e">
+                  {{ e.actor?.displayName ?? '—' }}
+                  @if (e.actor?.positionLabel) { <span class="muted"> · {{ e.actor.positionLabel }}</span> }
+                </td>
               </ng-container>
               <ng-container matColumnDef="eventType">
                 <th mat-header-cell *matHeaderCellDef>Événement</th>
@@ -87,8 +98,30 @@ import { AuditEventPage, AuditTrailService } from '../../../libs/api-clients/ope
                 <th mat-header-cell *matHeaderCellDef>Empreinte</th>
                 <td mat-cell *matCellDef="let e"><code class="hash" [title]="e.chainHash">{{ e.chainHash }}</code></td>
               </ng-container>
+
+              <ng-container matColumnDef="detail">
+                <td mat-cell *matCellDef="let e" [attr.colspan]="columns.length">
+                  <div class="detail" data-cy="audit-detail">
+                    <table class="diff">
+                      <thead><tr><th>Champ</th><th>Avant</th><th>Après</th></tr></thead>
+                      <tbody>
+                        @for (d of diff(e); track d.key) {
+                          <tr [class.changed]="d.changed">
+                            <td class="k">{{ d.key }}</td>
+                            <td class="before">{{ d.before }}</td>
+                            <td class="after">{{ d.after }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </ng-container>
+
               <tr mat-header-row *matHeaderRowDef="columns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: columns" data-cy="audit-row"></tr>
+              <tr mat-row *matRowDef="let row; columns: columns" data-cy="audit-row"
+                  class="data-row" [class.clickable]="hasDiff(row)" (click)="toggle(row)"></tr>
+              <tr mat-row *matRowDef="let row; columns: ['detail']; when: isExpandedRow" class="detail-row"></tr>
             </table>
             <nav class="pager">
               <button mat-stroked-button type="button" (click)="go(p.page - 1)" [disabled]="p.page <= 0">Précédent</button>
@@ -117,6 +150,19 @@ import { AuditEventPage, AuditTrailService } from '../../../libs/api-clients/ope
       .muted { color: var(--ct-color-muted); }
       .pager { display: flex; align-items: center; gap: var(--ct-space-3); padding: var(--ct-space-3) var(--ct-space-4); }
       .pager span { color: var(--ct-color-muted); font-size: 0.85rem; }
+      tr.clickable { cursor: pointer; }
+      tr.clickable:hover { background: var(--ct-color-primary-soft); }
+      tr.detail-row { height: 0; }
+      tr.detail-row td { padding: 0; border-bottom-width: 0; }
+      .chev { color: var(--ct-color-muted); transition: transform 0.15s; font-size: 20px; height: 20px; width: 20px; }
+      .chev.open { transform: rotate(90deg); color: var(--ct-color-primary); }
+      .detail { padding: var(--ct-space-3) var(--ct-space-4); background: var(--ct-color-surface-alt); }
+      .diff { border-collapse: collapse; width: 100%; max-width: 560px; }
+      .diff th { text-align: left; color: var(--ct-color-muted); font-weight: 600; font-size: 0.78rem; padding: 0 var(--ct-space-4) var(--ct-space-1) 0; }
+      .diff td { padding: var(--ct-space-1) var(--ct-space-4) var(--ct-space-1) 0; font-family: var(--ct-font-mono); font-size: 0.82rem; vertical-align: top; }
+      .diff td.k { color: var(--ct-color-muted); font-family: inherit; }
+      .diff tr.changed td.before { color: var(--ct-red-700); }
+      .diff tr.changed td.after { color: var(--ct-green-600); font-weight: 600; }
     `,
   ],
 })
@@ -131,7 +177,9 @@ export class AuditTrailPage implements OnInit {
     eventType: '',
     objectType: '',
   });
-  readonly columns = ['at', 'actor', 'eventType', 'object', 'hash'];
+  readonly columns = ['expand', 'at', 'actor', 'eventType', 'object', 'hash'];
+  private readonly expandedId = signal<string | null>(null);
+  @ViewChild(MatTable) private table?: MatTable<AuditEvent>;
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
@@ -171,5 +219,45 @@ export class AuditTrailPage implements OnInit {
 
   go(index: number): void {
     this.router.navigate([], { relativeTo: this.route, queryParams: { page: index }, queryParamsHandling: 'merge' });
+  }
+
+  /** Un événement porte un détail si le serveur a journalisé un avant/après (création, modification, transition). */
+  hasDiff(e: AuditEvent): boolean {
+    return e.before != null || e.after != null;
+  }
+
+  isExpanded(e: AuditEvent): boolean {
+    return this.expandedId() === e.id;
+  }
+
+  /** Prédicat de ligne de détail (signature Material : index, ligne). */
+  readonly isExpandedRow = (_: number, row: AuditEvent): boolean => this.hasDiff(row) && this.expandedId() === row.id;
+
+  toggle(e: AuditEvent): void {
+    if (!this.hasDiff(e)) {
+      return;
+    }
+    this.expandedId.set(this.isExpanded(e) ? null : (e.id ?? null));
+    // MatTable ne réévalue pas les prédicats `when` sur un simple changement d'état → re-render explicite.
+    this.table?.renderRows();
+  }
+
+  /** Différence avant→après : union des clés, valeur de chaque côté, marquée « changée » si elle diffère. */
+  diff(e: AuditEvent): { key: string; before: string; after: string; changed: boolean }[] {
+    const before = (e.before ?? {}) as Record<string, unknown>;
+    const after = (e.after ?? {}) as Record<string, unknown>;
+    const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
+    return keys.map((key) => {
+      const b = this.cell(before[key]);
+      const a = this.cell(after[key]);
+      return { key, before: b, after: a, changed: b !== a };
+    });
+  }
+
+  private cell(value: unknown): string {
+    if (value == null) {
+      return '—';
+    }
+    return String(value);
   }
 }
