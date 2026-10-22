@@ -1,15 +1,163 @@
 import { http, HttpResponse } from 'msw';
+import type { UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
- * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — sert `POST /assignments` sans backend.
- * Deux utilisateurs « sentinelles » exercent les refus décidés par le serveur (§2.1.8) côté e2e :
+ * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
+ * (profils) et affectation de position, sans backend ni Keycloak. Données de démonstration anonymes (D37).
+ * Deux utilisateurs « sentinelles » exercent les refus décidés par le serveur sur `POST /assignments` :
  *   …000000000409 → conflit SoD statique (409) ; …000000000422 → requête invalide / auto-octroi (422).
  * Le front n'enforce aucune règle : il affiche la décision renvoyée (D32).
  */
 const SOD_USER = '00000000-0000-0000-0000-000000000409';
 const INVALID_USER = '00000000-0000-0000-0000-000000000422';
 
+const INSPECTION_UNIT = { id: 'b1111111-1111-1111-1111-111111111111', code: 'AG-A001', label: 'Agence A001' };
+const AUDIT_UNIT = { id: '3f6c2a1e-8b7d-4c21-9a55-0e2f4b6d8c10', code: 'DIR_AUDIT', label: 'Inspection Générale' };
+
+/** Annuaire de démonstration — un échantillon couvrant les statuts et sources de compte. */
+const USERS: UserAccount[] = [
+  {
+    id: '00000000-0000-0000-0000-0000000000f1',
+    username: 'ines.gendron',
+    displayName: 'Inès Gendron',
+    email: 'ines.gendron@banque-demo.test',
+    source: 'AD',
+    accountStatus: 'ACTIVE',
+    mfaConfigured: true,
+    lastLoginAt: '2026-02-03T08:12:00Z',
+    activeSessions: 1,
+    assignments: [
+      {
+        id: 'a55e0000-0000-0000-0000-0000000000a1',
+        userId: '00000000-0000-0000-0000-0000000000f1',
+        positionId: 'd1111111-1111-1111-1111-111111111111',
+        positionLabel: 'Chef de mission',
+        unit: AUDIT_UNIT,
+        kind: 'HOLDER',
+        validFrom: '2025-09-01',
+        state: 'ACTIVE',
+      },
+    ],
+  },
+  {
+    id: '00000000-0000-0000-0000-0000000000f2',
+    username: 'omar.haddad',
+    displayName: 'Omar Haddad',
+    email: 'omar.haddad@banque-demo.test',
+    source: 'AD',
+    accountStatus: 'ACTIVE',
+    mfaConfigured: true,
+    lastLoginAt: '2026-02-02T16:40:00Z',
+    activeSessions: 0,
+    assignments: [
+      {
+        id: 'a55e0000-0000-0000-0000-0000000000a2',
+        userId: '00000000-0000-0000-0000-0000000000f2',
+        positionId: 'd2222222-2222-2222-2222-222222222222',
+        positionLabel: 'Inspecteur',
+        unit: INSPECTION_UNIT,
+        kind: 'HOLDER',
+        validFrom: '2025-10-15',
+        state: 'ACTIVE',
+      },
+    ],
+  },
+  {
+    id: '00000000-0000-0000-0000-0000000000f3',
+    username: 'salma.benali',
+    displayName: 'Salma Benali',
+    email: 'salma.benali@banque-demo.test',
+    source: 'LOCAL',
+    accountStatus: 'LOCKED',
+    mfaConfigured: false,
+    lastLoginAt: '2026-01-20T09:05:00Z',
+    activeSessions: 0,
+    assignments: [
+      {
+        id: 'a55e0000-0000-0000-0000-0000000000a3',
+        userId: '00000000-0000-0000-0000-0000000000f3',
+        positionId: 'd3333333-3333-3333-3333-333333333333',
+        positionLabel: 'Administrateur système',
+        unit: AUDIT_UNIT,
+        kind: 'HOLDER',
+        validFrom: '2025-06-01',
+        state: 'ACTIVE',
+      },
+    ],
+  },
+  {
+    id: '00000000-0000-0000-0000-0000000000f4',
+    username: 'youssef.alaoui',
+    displayName: 'Youssef Alaoui',
+    email: 'youssef.alaoui@banque-demo.test',
+    source: 'AD',
+    accountStatus: 'NO_ASSIGNMENT',
+    mfaConfigured: true,
+    lastLoginAt: '2026-02-01T11:30:00Z',
+    activeSessions: 0,
+    assignments: [],
+  },
+  {
+    id: '00000000-0000-0000-0000-0000000000f5',
+    username: 'audit.service',
+    displayName: 'Compte de service Audit',
+    email: 'svc.audit@banque-demo.test',
+    source: 'LOCAL',
+    accountStatus: 'DISABLED',
+    mfaConfigured: false,
+    activeSessions: 0,
+    assignments: [],
+  },
+];
+
 export const adminIamHandlers = [
+  // Annuaire : recherche libre + filtres statut / source, servis côté « serveur ».
+  http.get('*/api/admin/users', ({ request }) => {
+    const url = new URL(request.url);
+    const q = url.searchParams.get('q')?.toLowerCase();
+    const status = url.searchParams.get('accountStatus');
+    const source = url.searchParams.get('source');
+    const items = USERS.filter(
+      (u) =>
+        (!q || `${u.displayName} ${u.username} ${u.email ?? ''}`.toLowerCase().includes(q)) &&
+        (!status || u.accountStatus === status) &&
+        (!source || u.source === source),
+    );
+    const page: UserPage = { page: 0, size: 20, totalItems: items.length, totalPages: 1, items };
+    return HttpResponse.json(page);
+  }),
+
+  // Fiche (profil) d'un utilisateur.
+  http.get('*/api/admin/users/:userId', ({ params }) => {
+    const user = USERS.find((u) => u.id === String(params['userId'])) ?? USERS[0];
+    return HttpResponse.json(user);
+  }),
+
+  // Création d'un compte local. Identifiant « existant » → 409 (démo de l'unicité décidée par le serveur).
+  http.post('*/api/admin/users', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Partial<Record<'username' | 'firstName' | 'lastName' | 'email', string>> | null;
+    const username = body?.username ?? '';
+    if (username.toLowerCase() === 'existant' || USERS.some((u) => u.username === username)) {
+      return HttpResponse.json(
+        { title: 'Conflit', detail: `L'identifiant « ${username} » est déjà utilisé.` },
+        { status: 409, headers: { 'content-type': 'application/problem+json' } },
+      );
+    }
+    const created: UserAccount = {
+      id: 'c0000000-0000-0000-0000-000000000001',
+      username,
+      displayName: `${body?.firstName ?? ''} ${body?.lastName ?? ''}`.trim() || username,
+      email: body?.email,
+      source: 'LOCAL',
+      accountStatus: 'NO_ASSIGNMENT',
+      mfaConfigured: false,
+      activeSessions: 0,
+      assignments: [],
+    };
+    USERS.push(created);
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
   http.post('*/api/admin/assignments', async ({ request }) => {
     const body = (await request.json().catch(() => null)) as { userId?: string } | null;
     const userId = body?.userId ?? '';
