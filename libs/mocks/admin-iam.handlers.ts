@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { AssignmentPage, OrgUnitNode, Position, UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -108,9 +108,65 @@ const USERS: UserAccount[] = [
     activeSessions: 0,
     assignments: [],
   },
+  // Sentinelles de refus d'affectation (sélectionnables dans le formulaire pour exercer les cas 409/422).
+  {
+    id: SOD_USER,
+    username: 'rachid.benjelloun',
+    displayName: 'Rachid Benjelloun',
+    email: 'rachid.benjelloun@banque-demo.test',
+    source: 'AD',
+    accountStatus: 'ACTIVE',
+    mfaConfigured: true,
+    activeSessions: 0,
+    assignments: [],
+  },
+  {
+    id: INVALID_USER,
+    username: 'fatima.zahra',
+    displayName: 'Fatima Zahra',
+    email: 'fatima.zahra@banque-demo.test',
+    source: 'AD',
+    accountStatus: 'ACTIVE',
+    mfaConfigured: true,
+    activeSessions: 0,
+    assignments: [],
+  },
+];
+
+/** Référentiel des positions (pack Banque, §2.1) — pour le sélecteur d'affectation. */
+const POSITIONS: Position[] = [
+  { id: 'd1111111-1111-1111-1111-111111111111', code: 'CHEF_MISSION', label: { fr: 'Chef de mission' }, rank: 20, scope: 'UNIT_TREE', active: true },
+  { id: 'd2222222-2222-2222-2222-222222222222', code: 'INSPECTEUR', label: { fr: 'Inspecteur' }, rank: 30, scope: 'UNIT', active: true },
+  { id: 'd3333333-3333-3333-3333-333333333333', code: 'ADMIN_SYS', label: { fr: 'Administrateur système' }, rank: 10, scope: 'TENANT', active: true },
+];
+
+/** Arbre des unités (pour le sélecteur d'unité). */
+const ORG_UNITS: OrgUnitNode[] = [
+  {
+    id: AUDIT_UNIT.id,
+    code: AUDIT_UNIT.code,
+    label: AUDIT_UNIT.label,
+    typeLabel: 'Direction',
+    children: [{ id: INSPECTION_UNIT.id, code: INSPECTION_UNIT.code, label: INSPECTION_UNIT.label, typeLabel: 'Agence' }],
+  },
 ];
 
 export const adminIamHandlers = [
+  // Référentiel des positions (sélecteur d'affectation).
+  http.get('*/api/admin/positions', () => HttpResponse.json(POSITIONS)),
+
+  // Arbre des unités (sélecteur d'unité).
+  http.get('*/api/admin/org/units', () => HttpResponse.json(ORG_UNITS)),
+
+  // Affectations existantes (aperçu récent sur la page d'affectation).
+  http.get('*/api/admin/assignments', () => {
+    const items = USERS.flatMap((u) =>
+      (u.assignments ?? []).map((a) => ({ ...a, user: { id: u.id, displayName: u.displayName } })),
+    );
+    const page: AssignmentPage = { page: 0, size: 20, totalItems: items.length, totalPages: 1, items };
+    return HttpResponse.json(page);
+  }),
+
   // Annuaire : recherche libre + filtres statut / source, servis côté « serveur ».
   http.get('*/api/admin/users', ({ request }) => {
     const url = new URL(request.url);
