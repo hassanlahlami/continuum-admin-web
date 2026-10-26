@@ -77,6 +77,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">balance</mat-icon>
             <span matListItemTitle>Séparation des tâches</span>
           </a>
+          <a mat-list-item routerLink="/pending" routerLinkActive="active-nav"
+             data-cy="nav-pending"
+             [matTooltip]="collapsed() && !isHandset() ? 'Validations en attente' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">how_to_reg</mat-icon>
+            <span matListItemTitle>Validations en attente</span>
+          </a>
           <a mat-list-item routerLink="/assignments" routerLinkActive="active-nav"
              data-cy="nav-assignments"
              [matTooltip]="collapsed() && !isHandset() ? 'Affectations' : ''" matTooltipPosition="right"
