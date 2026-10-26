@@ -18,6 +18,15 @@ describe('ADM-11 — Règles de séparation des tâches', () => {
     cy.get('[data-cy=sod-rule]').last().should('contain', 'Dynamique').and('contain', 'Avertir');
   });
 
+  it('signale les règles du pack et ne propose que les actions permises (availableActions)', () => {
+    cy.visit('/sod-rules');
+    cy.get('[data-cy=sod-rule]').first().find('[data-cy=sod-pack-badge]').should('contain', 'Pack');
+    cy.get('[data-cy=sod-rule]').first().find('[data-cy=sod-edit], [data-cy=sod-delete]').should('not.exist');
+    cy.get('[data-cy=sod-rule]').last().find('[data-cy=sod-pack-badge]').should('not.exist');
+    cy.get('[data-cy=sod-rule]').last().find('[data-cy=sod-edit]').should('exist');
+    cy.get('[data-cy=sod-rule]').last().find('[data-cy=sod-delete]').should('exist');
+  });
+
   it('affiche les conflits actuels', () => {
     cy.visit('/sod-rules');
     cy.contains('[role=tab]', 'Conflits actuels').click();
@@ -45,7 +54,7 @@ describe('ADM-11 — Règles de séparation des tâches', () => {
 
   it('soumet la suppression à double validation', () => {
     cy.visit('/sod-rules');
-    cy.get('[data-cy=sod-delete]').first().click();
+    cy.get('[data-cy=sod-delete]').click();
     cy.get('[data-cy=sod-message]').should('contain', 'double validation');
     cy.get('[data-cy=sod-rule]').should('have.length.gte', 2);
   });
@@ -67,7 +76,7 @@ describe('ADM-11 — Règles de séparation des tâches', () => {
 
   it('gère le conflit de version (409) en rechargeant', () => {
     cy.visit('/sod-rules', withMode('conflict'));
-    cy.get('[data-cy=sod-edit]').first().click();
+    cy.get('[data-cy=sod-edit]').click();
     cy.get('[data-cy=sod-save]').click();
     cy.get('[data-cy=sod-error]').should('contain', 'modifiée entre-temps');
     cy.get('[data-cy=sod-form]').should('not.exist');
