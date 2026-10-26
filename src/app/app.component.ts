@@ -70,6 +70,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">rule</mat-icon>
             <span matListItemTitle>Rôles</span>
           </a>
+          <a mat-list-item routerLink="/sod-rules" routerLinkActive="active-nav"
+             data-cy="nav-sod-rules"
+             [matTooltip]="collapsed() && !isHandset() ? 'Séparation des tâches' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">balance</mat-icon>
+            <span matListItemTitle>Séparation des tâches</span>
+          </a>
           <a mat-list-item routerLink="/assignments" routerLinkActive="active-nav"
              data-cy="nav-assignments"
              [matTooltip]="collapsed() && !isHandset() ? 'Affectations' : ''" matTooltipPosition="right"
