@@ -137,6 +137,7 @@ type LogLine = Record<string, unknown>;
                   </select>
                 </mat-form-field>
                 <button mat-stroked-button type="button" data-cy="logs-saved-apply" [disabled]="!savedId()" (click)="applySaved()">Appliquer</button>
+                <button mat-stroked-button type="button" data-cy="logs-saved-delete" [disabled]="!savedId()" (click)="deleteSaved()">Supprimer</button>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="wide">
                   <mat-label>Nom de la requête</mat-label>
                   <input matInput name="saveLabel" [ngModel]="saveLabel()" (ngModelChange)="saveLabel.set($event)" data-cy="logs-save-label" />
@@ -342,14 +343,28 @@ export class LogsPage implements OnInit {
     this.search();
   }
 
+  deleteSaved(): void {
+    const id = this.savedId();
+    if (!id) return;
+    this.service.deleteSavedLogQuery(id).subscribe({
+      next: () => {
+        this.saved.update((list) => list.filter((x) => x.id !== id));
+        this.savedId.set('');
+        this.result.set('Requête supprimée.');
+      },
+      error: (e: HttpErrorResponse) => this.fail(e, 'Suppression impossible.'),
+    });
+  }
+
   saveQuery(): void {
     const label = this.saveLabel().trim();
     if (!label) return;
     this.service.saveLogQuery({ label, query: this.buildQuery() }).subscribe({
-      next: () => {
+      next: (created) => {
         this.saveLabel.set('');
+        this.saved.update((list) => [...list, created]);
+        this.savedId.set(created.id ?? '');
         this.result.set(`Requête « ${label} » sauvegardée.`);
-        this.loadSaved();
       },
       error: (e: HttpErrorResponse) => this.fail(e, 'Sauvegarde impossible.'),
     });

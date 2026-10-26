@@ -154,8 +154,14 @@ export const operationsHandlers = [
   http.get('*/api/admin/logs/saved-queries', () => HttpResponse.json(SAVED_QUERIES)),
   http.post('*/api/admin/logs/saved-queries', async ({ request }) => {
     const body = (await request.json()) as SaveLogQueryRequest;
-    SAVED_QUERIES = [...SAVED_QUERIES, { id: `00000000-0000-0000-0000-0000000000d${SAVED_QUERIES.length + 2}`, label: body.label, query: body.query }];
-    return new HttpResponse(null, { status: 201 });
+    const created: ListSavedLogQueries200ResponseInner = { id: `00000000-0000-0000-0000-0000000000d${SAVED_QUERIES.length + 2}`, label: body.label, query: body.query };
+    SAVED_QUERIES = [...SAVED_QUERIES, created];
+    return HttpResponse.json(created, { status: 201 });
+  }),
+  http.delete('*/api/admin/logs/saved-queries/:queryId', ({ params }) => {
+    if (!SAVED_QUERIES.some((q) => q.id === params['queryId'])) return new HttpResponse(null, { status: 404 });
+    SAVED_QUERIES = SAVED_QUERIES.filter((q) => q.id !== params['queryId']);
+    return new HttpResponse(null, { status: 204 });
   }),
   http.get('*/api/admin/log-levels', () => {
     LOG_LEVELS = LOG_LEVELS.filter((l) => Date.parse(l.expiresAt ?? '') > Date.now());
