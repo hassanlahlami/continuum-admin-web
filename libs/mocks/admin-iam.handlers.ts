@@ -195,8 +195,13 @@ const positionDetail = (p: Position): Position => {
   };
 };
 
+/** Clé localStorage activant la matrice en lecture seule (surcharge utilisée par les specs Cypress). */
+export const READONLY_OVERRIDE_KEY = 'ct-mock-roles-readonly';
+
 export const adminIamHandlers = [
-  http.get('*/api/admin/role-feature-matrix', () => HttpResponse.json(ROLE_MATRIX)),
+  // Surcharge e2e : la clé `READONLY_OVERRIDE_KEY` du localStorage retire `availableActions` (profil sans droit de modification).
+  http.get('*/api/admin/role-feature-matrix', () =>
+    HttpResponse.json(globalThis.localStorage?.getItem(READONLY_OVERRIDE_KEY) === 'true' ? { ...ROLE_MATRIX, availableActions: [] } : ROLE_MATRIX)),
 
   // Modification différentielle (ADM-09) : version périmée → 409 ; retirer à l'administrateur courant sa gestion
   // des rôles → 403 ; toucher une fonctionnalité sensible → double validation (rien n'est appliqué).
