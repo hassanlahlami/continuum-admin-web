@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -13,7 +14,7 @@ import { Entity, EntitiesService } from '../../../libs/api-clients/admin-iam';
 @Component({
   selector: 'ct-entities',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatCardModule, MatProgressBarModule],
+  imports: [FormsModule, RouterLink, MatButtonModule, MatCardModule, MatProgressBarModule],
   template: `
     <section>
       <header class="page-head"><h1>Entités</h1></header>
@@ -52,7 +53,7 @@ import { Entity, EntitiesService } from '../../../libs/api-clients/admin-iam';
               <tbody>
                 @for (e of entities(); track e.id) {
                   <tr data-cy="ent-row">
-                    <td>{{ e.code }}</td>
+                    <td><a [routerLink]="['/entities', e.id]" data-cy="ent-open">{{ e.code }}</a></td>
                     <td>{{ e.label }}</td>
                     <td data-cy="ent-status">{{ statusLabel(e.status) }}</td>
                     <td>{{ e.dataIsolation ?? '—' }}</td>

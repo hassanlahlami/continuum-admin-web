@@ -242,7 +242,7 @@ const CHANGE_REQUESTS: ChangeRequest[] = [
 ];
 const crMode = () => globalThis.localStorage?.getItem('ct-mock-change-requests');
 
-/** Entités (tenants) de démonstration (ADM-02) ; surcharge localStorage `ct-mock-entities` : forbidden, error, invalid. */
+/** Entités (tenants) de démonstration (ADM-02) ; surcharge localStorage `ct-mock-entities` : forbidden, error, invalid, conflict. */
 const ENTITIES: Entity[] = [
   { id: 'e2000000-0000-0000-0000-000000000001', code: 'BANQUE-DEMO', label: 'Banque Démo — Maison mère', status: 'ACTIVE', keycloakRealm: 'banque-demo', dataIsolation: 'SCHEMA', packCode: 'PACK-BANQUE', enabledModules: ['AUDIT', 'CCM', 'REPORTING'], locales: ['fr', 'ar'], defaultLocale: 'fr', usersCount: 42 },
   { id: 'e2000000-0000-0000-0000-000000000002', code: 'BANQUE-DEMO-FILIALE-01', label: 'Banque Démo — Filiale Leasing', status: 'SUSPENDED', keycloakRealm: 'banque-demo-filiale-01', dataIsolation: 'PDB', packCode: 'PACK-BANQUE', enabledModules: ['AUDIT'], locales: ['fr'], defaultLocale: 'fr', usersCount: 7 },
@@ -262,6 +262,34 @@ export const adminIamHandlers = [
     if (entityMode() === 'invalid' || !body.code?.trim() || ENTITIES.some((e) => e.code === body.code)) return HttpResponse.json({ title: 'Invalid entity' }, { status: 422 });
     ENTITIES.push({ ...body, id: 'e2000000-0000-0000-0000-' + String(ENTITIES.length + 1).padStart(12, '0'), status: 'PROVISIONING', keycloakRealm: body.code.toLowerCase(), dataIsolation: 'SCHEMA', usersCount: 0 });
     return HttpResponse.json({ id: 'f0000000-0000-0000-0000-000000000001', type: 'ENTITY_PROVISIONING', status: 'QUEUED', progress: 0 }, { status: 202 });
+  }),
+  // Fiche entité (ADM-03) : lecture, modification (409 si surcharge `conflict`, 422 si libellé vide), actions suspend / reactivate / maintenance.
+  http.get('*/api/admin/entities/:id', ({ params }) => {
+    if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    const e = ENTITIES.find((x) => x.id === params['id']);
+    return e ? HttpResponse.json(e) : new HttpResponse(null, { status: 404 });
+  }),
+  http.put('*/api/admin/entities/:id', async ({ request, params }) => {
+    if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (entityMode() === 'conflict') return new HttpResponse(null, { status: 409 });
+    const body = (await request.json()) as EntityInput;
+    const e = ENTITIES.find((x) => x.id === params['id']);
+    if (!e) return new HttpResponse(null, { status: 404 });
+    if (!body.label?.trim() || (body.locales?.length && body.defaultLocale && !body.locales.includes(body.defaultLocale as never))) return HttpResponse.json({ title: 'Invalid entity' }, { status: 422 });
+    Object.assign(e, { label: body.label, enabledModules: body.enabledModules, locales: body.locales, defaultLocale: body.defaultLocale, version: (e.version ?? 0) + 1 });
+    return HttpResponse.json(e);
+  }),
+  http.post('*/api/admin/entities/:id/actions/:code', async ({ params }) => {
+    if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (entityMode() === 'conflict') return new HttpResponse(null, { status: 409 });
+    const e = ENTITIES.find((x) => x.id === params['id']);
+    if (!e) return new HttpResponse(null, { status: 404 });
+    const next: Record<string, Entity['status']> = { suspend: 'SUSPENDED', reactivate: 'ACTIVE', maintenance: 'MAINTENANCE' };
+    const st = next[params['code'] as string];
+    if (!st) return new HttpResponse(null, { status: 422 });
+    e.status = st;
+    e.version = (e.version ?? 0) + 1;
+    return HttpResponse.json(e);
   }),
   // Demandes en attente de validation (ADM-14) ; surcharge localStorage `ct-mock-change-requests` : forbidden, error, conflict.
   http.get('*/api/admin/change-requests', ({ request }) => {
