@@ -1,5 +1,8 @@
 import { http, HttpResponse } from 'msw';
-import type { AuditEventPage, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job } from '../api-clients/operations';
+import type {
+  AuditEventPage, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
+  LogLevelOverride, LogQuery, LogResultPage, SaveLogQueryRequest,
+} from '../api-clients/operations';
 
 /**
  * Mocks MSW du module « operations » (Admin Système, front-first D32) — piste d'audit des opérations.
@@ -104,7 +107,77 @@ const purged = (c: CacheRegion, reason: string): CacheRegion => ({
   instances: c.instances?.map((i) => ({ ...i, entries: 0 })),
 });
 
+/** Logs (OPS-08) : lignes ECS (§10.3) datées relativement à maintenant pour que la période par défaut contienne des données. */
+const minutesAgo = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+const LOGS: { stream: LogQuery.StreamEnum; line: Record<string, unknown> }[] = [
+  { stream: 'TECHNICAL', line: { '@timestamp': minutesAgo(2), 'log.level': 'ERROR', 'log.logger': 'continuum.integration', message: 'Connecteur ERP-LEGACY indisponible (timeout 8000 ms)', 'event.code': 'CTN-INT-0102', 'trace.id': '4bf92f3577b34da6', 'service.name': 'continuum-backend', node: 'backend-app-2' } },
+  { stream: 'TECHNICAL', line: { '@timestamp': minutesAgo(5), 'log.level': 'WARN', 'log.logger': 'continuum.integration', message: 'Nouvelle tentative pullAccounts (1/3)', 'trace.id': '4bf92f3577b34da6', 'service.name': 'continuum-backend', node: 'backend-app-1' } },
+  { stream: 'TECHNICAL', line: { '@timestamp': minutesAgo(9), 'log.level': 'INFO', 'log.logger': 'continuum.iam', message: 'Affectation ASG-2026-0117 créée', 'trace.id': '9a1c7e3b5d2f4a60', 'service.name': 'continuum-backend', node: 'backend-app-1' } },
+  { stream: 'TECHNICAL', line: { '@timestamp': minutesAgo(14), 'log.level': 'DEBUG', 'log.logger': 'continuum.integration', message: 'Réponse ERP-CORE reçue en 84 ms', 'trace.id': '2e8b4d1f6a9c0375', 'service.name': 'continuum-backend', node: 'backend-app-2' } },
+  { stream: 'SECURITY', line: { '@timestamp': minutesAgo(20), 'log.level': 'WARN', 'log.logger': 'continuum.security', message: 'Surcharge de niveau activée pour continuum.integration', 'event.code': 'CTN-SEC-0010', 'trace.id': '7d3a9f2e1b8c4d05', 'service.name': 'continuum-backend', node: 'backend-app-1' } },
+];
+let SAVED_QUERIES: ListSavedLogQueries200ResponseInner[] = [
+  { id: '00000000-0000-0000-0000-0000000000d1', label: 'Erreurs d’intégration', query: { stream: 'TECHNICAL', from: minutesAgo(60), to: minutesAgo(0), levels: ['ERROR', 'WARN'], modules: ['continuum.integration'] } },
+];
+/** Surcharges de niveau (OPS-08, onglet « Niveaux de log ») : expirées automatiquement, la durée par défaut étant PT30M. */
+let LOG_LEVELS: LogLevelOverride[] = [
+  { id: '00000000-0000-0000-0000-0000000000e1', logger: 'continuum.integration', level: 'DEBUG', entityCode: 'A001', expiresIn: 'PT30M',
+    expiresAt: new Date(Date.now() + 20 * 60_000).toISOString(), reason: 'Diagnostic des tentatives de synchronisation',
+    setBy: { id: '00000000-0000-0000-0000-0000000000f3', displayName: 'Salma Benali' } },
+];
+/** Durée ISO-8601 limitée aux heures et minutes (`PT30M`, `PT1H`) ; `undefined` si non reconnue. */
+const durationMs = (iso: string): number | undefined => {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?$/.exec(iso);
+  return m && (m[1] || m[2]) ? ((Number(m[1] ?? 0) * 60) + Number(m[2] ?? 0)) * 60_000 : undefined;
+};
+
 export const operationsHandlers = [
+  // Logs (OPS-08) : la recherche filtre par flux, niveaux, texte, référence de trace, période (from/to).
+  http.post('*/api/admin/logs/search', async ({ request }) => {
+    const q = (await request.json()) as LogQuery;
+    const text = q.text?.toLowerCase();
+    const from = Date.parse(q.from);
+    const to = Date.parse(q.to);
+    const items = LOGS.filter(({ stream, line }) => {
+      const ts = Date.parse(String(line['@timestamp']));
+      return stream === q.stream
+        && ts >= from && ts <= to
+        && (!q.levels?.length || q.levels.includes(line['log.level'] as LogQuery.LevelsEnum))
+        && (!q.traceId || line['trace.id'] === q.traceId)
+        && (!text || String(line['message']).toLowerCase().includes(text))
+        && (!q.eventCodes?.length || q.eventCodes.includes(String(line['event.code'])))
+        && (!q.modules?.length || q.modules.includes(String(line['log.logger'])));
+    }).map((l) => l.line);
+    const page: LogResultPage = { page: 0, size: 20, totalItems: items.length, totalPages: 1, items };
+    return HttpResponse.json(page);
+  }),
+  http.get('*/api/admin/logs/saved-queries', () => HttpResponse.json(SAVED_QUERIES)),
+  http.post('*/api/admin/logs/saved-queries', async ({ request }) => {
+    const body = (await request.json()) as SaveLogQueryRequest;
+    SAVED_QUERIES = [...SAVED_QUERIES, { id: `00000000-0000-0000-0000-0000000000d${SAVED_QUERIES.length + 2}`, label: body.label, query: body.query }];
+    return new HttpResponse(null, { status: 201 });
+  }),
+  http.get('*/api/admin/log-levels', () => {
+    LOG_LEVELS = LOG_LEVELS.filter((l) => Date.parse(l.expiresAt ?? '') > Date.now());
+    return HttpResponse.json(LOG_LEVELS);
+  }),
+  http.post('*/api/admin/log-levels', async ({ request }) => {
+    const body = (await request.json()) as LogLevelOverride;
+    const ttl = durationMs(body.expiresIn);
+    // Motif de 10 caractères au moins (minLength du contrat, journalisé CTN-SEC-0010) ; durée ISO reconnue.
+    if (!body.logger || (body.reason ?? '').length < 10 || ttl === undefined) {
+      return HttpResponse.json({ title: 'Surcharge invalide' }, { status: 422 });
+    }
+    const created: LogLevelOverride = {
+      ...body,
+      id: `00000000-0000-0000-0000-0000000000e${LOG_LEVELS.length + 2}`,
+      expiresAt: new Date(Date.now() + ttl).toISOString(),
+      setBy: { id: '00000000-0000-0000-0000-0000000000f3', displayName: 'Salma Benali' },
+    };
+    LOG_LEVELS = [...LOG_LEVELS, created];
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
   // Caches de paramétrage (OPS-07) : le motif est obligatoire (minLength 10 du contrat, sinon 422).
   http.get('*/api/admin/caches', () => HttpResponse.json(CACHES)),
   http.delete('*/api/admin/caches', ({ request }) => {

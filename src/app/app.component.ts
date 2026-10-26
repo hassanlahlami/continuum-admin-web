@@ -91,6 +91,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">memory</mat-icon>
             <span matListItemTitle>Caches</span>
           </a>
+          <a mat-list-item routerLink="/logs" routerLinkActive="active-nav"
+             data-cy="nav-logs"
+             [matTooltip]="collapsed() && !isHandset() ? 'Logs' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">article</mat-icon>
+            <span matListItemTitle>Logs</span>
+          </a>
           <a mat-list-item routerLink="/authz-simulator" routerLinkActive="active-nav"
              data-cy="nav-authz-simulator"
              [matTooltip]="collapsed() && !isHandset() ? 'Simulateur' : ''" matTooltipPosition="right"
