@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { ListSodConflicts200ResponseInner, SodRule, AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { ChangeRequest, ListSodConflicts200ResponseInner, SodRule, AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -233,7 +233,35 @@ const SOD_CONFLICTS: ListSodConflicts200ResponseInner[] = [
 const sodMode = () => globalThis.localStorage?.getItem(SOD_OVERRIDE_KEY);
 const canSod = (rule: SodRule, code: string) => !!rule.availableActions?.some((a) => a.code === code);
 
+/** Demandes de double validation de démonstration (ADM-14) : la 2e est celle de l'utilisateur courant (aucune action). */
+const CR_ACTIONS = [{ code: 'approve', label: 'Approuver' }, { code: 'reject', label: 'Rejeter', requiresComment: true }];
+const CHANGE_REQUESTS: ChangeRequest[] = [
+  { id: 'c0000000-0000-0000-0000-000000000001', kind: 'ASSIGNMENT', summary: 'Affecter insp2.demo comme Chef de département Inspection (intérim)', state: 'PENDING', requestedBy: { id: '00000000-0000-0000-0000-0000000000f1', displayName: 'Inès Gendron' }, requestedAt: '2026-02-03T09:00:00Z', beneficiary: { id: '00000000-0000-0000-0000-0000000000f2', displayName: 'Inspecteur Deux' }, sensitiveFeatures: ['finding.validate', 'report.publish'], availableActions: CR_ACTIONS },
+  { id: 'c0000000-0000-0000-0000-000000000002', kind: 'SOD_RULE', summary: 'Supprimer la règle report.approve / report.publish', state: 'PENDING', requestedBy: { id: '00000000-0000-0000-0000-0000000000f3', displayName: 'Admin Demo' }, requestedAt: '2026-02-03T10:30:00Z', sensitiveFeatures: [], availableActions: [] },
+  { id: 'c0000000-0000-0000-0000-000000000003', kind: 'ROLE_FEATURES', summary: 'Ajouter report.publish au rôle Inspecteur', state: 'PENDING', requestedBy: { id: '00000000-0000-0000-0000-0000000000f1', displayName: 'Inès Gendron' }, requestedAt: '2026-02-02T15:00:00Z', sensitiveFeatures: ['report.publish'], availableActions: CR_ACTIONS },
+];
+const crMode = () => globalThis.localStorage?.getItem('ct-mock-change-requests');
+
 export const adminIamHandlers = [
+  // Demandes en attente de validation (ADM-14) ; surcharge localStorage `ct-mock-change-requests` : forbidden, error, conflict.
+  http.get('*/api/admin/change-requests', ({ request }) => {
+    if (crMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (crMode() === 'error') return new HttpResponse(null, { status: 500 });
+    const state = new URL(request.url).searchParams.get('state') ?? 'PENDING';
+    return HttpResponse.json(CHANGE_REQUESTS.filter((c) => c.state === state));
+  }),
+  http.post('*/api/admin/change-requests/:id/actions/:code', async ({ request, params }) => {
+    if (crMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (crMode() === 'conflict') return new HttpResponse(null, { status: 409 });
+    const body = (await request.json()) as { comment?: string };
+    const cr = CHANGE_REQUESTS.find((c) => c.id === params['id']);
+    if (!cr) return new HttpResponse(null, { status: 404 });
+    if (!cr.availableActions?.some((a) => a.code === params['code'])) return new HttpResponse(null, { status: 403 });
+    if (params['code'] === 'reject' && !body.comment?.trim()) return HttpResponse.json({ title: 'Reason required' }, { status: 422 });
+    cr.state = params['code'] === 'approve' ? 'APPROVED' : 'REJECTED';
+    cr.availableActions = [];
+    return HttpResponse.json(cr);
+  }),
   // Règles de séparation des tâches (ADM-11) : lecture, création, modification (409 si surcharge `conflict`), suppression (double validation).
   http.get('*/api/admin/sod-rules', () => {
     if (sodMode() === 'forbidden') return new HttpResponse(null, { status: 403 });

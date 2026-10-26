@@ -6,6 +6,7 @@ import { CachesPage } from './pages/caches.page';
 import { ConnectorsPage } from './pages/connectors.page';
 import { LogsPage } from './pages/logs.page';
 import { OverviewPage } from './pages/overview.page';
+import { PendingChangesPage } from './pages/pending-changes.page';
 import { PositionEditorPage } from './pages/position-editor.page';
 import { PositionsPage } from './pages/positions.page';
 import { RolesPage } from './pages/roles.page';
@@ -23,6 +24,7 @@ export const routes: Routes = [
   { path: 'positions', component: PositionsPage },
   { path: 'positions/:positionId', component: PositionEditorPage },
   { path: 'roles', component: RolesPage },
+  { path: 'pending', component: PendingChangesPage },
   { path: 'sod-rules', component: SodRulesPage },
   { path: 'assignments', component: AssignPositionPage },
   { path: 'audit-trail', component: AuditTrailPage },
