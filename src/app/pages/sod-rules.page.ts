@@ -71,13 +71,18 @@ import { ChangeResult, ListSodConflicts200ResponseInner, SodRule, SodService } f
                     <tbody>
                       @for (r of rules(); track r.id) {
                         <tr data-cy="sod-rule">
-                          <td>{{ r.featureA }}</td><td>{{ r.featureB }}</td>
+                          <td>{{ r.featureA }}@if (r.fromPack) { <span class="badge" data-cy="sod-pack-badge">Pack</span> }</td>
+                          <td>{{ r.featureB }}</td>
                           <td>{{ r.type === 'STATIC' ? 'Statique' : 'Dynamique' }}</td>
                           <td>{{ r.severity === 'BLOCK' ? 'Bloquer' : 'Avertir' }}</td>
                           <td>{{ r.description }}</td>
                           <td class="row-actions">
-                            <button mat-button type="button" data-cy="sod-edit" (click)="startEdit(r)">Modifier</button>
-                            <button mat-button type="button" data-cy="sod-delete" (click)="remove(r)">Supprimer</button>
+                            @if (can(r, 'edit')) {
+                              <button mat-button type="button" data-cy="sod-edit" (click)="startEdit(r)">Modifier</button>
+                            }
+                            @if (can(r, 'delete')) {
+                              <button mat-button type="button" data-cy="sod-delete" (click)="remove(r)">Supprimer</button>
+                            }
                           </td>
                         </tr>
                       }
@@ -132,6 +137,7 @@ import { ChangeResult, ListSodConflicts200ResponseInner, SodRule, SodService } f
       .field { display: flex; flex-direction: column; gap: var(--ct-space-1); margin-bottom: var(--ct-space-2); max-width: 32rem; }
       .field input, .field select { padding: var(--ct-space-2); border: 1px solid var(--ct-color-border); border-radius: var(--ct-radius-sm); font: inherit; }
       .row-actions { white-space: nowrap; }
+      .badge { margin-inline-start: var(--ct-space-1); padding: 0 var(--ct-space-1); border: 1px solid var(--ct-color-border); border-radius: var(--ct-radius-sm); color: var(--ct-color-muted); font-size: 0.75rem; }
       .ok { color: var(--ct-green-600); }
       .err { color: var(--ct-red-700); }
       .muted { color: var(--ct-color-muted); }
@@ -170,7 +176,9 @@ export class SodRulesPage implements OnInit {
     if (!d) return;
     this.saving.set(true);
     this.clear();
-    const call = d.id ? this.sod.updateSodRule(d.id, d) : this.sod.createSodRule(d);
+    // `fromPack` et `availableActions` sont en lecture seule côté serveur : on ne les renvoie pas.
+    const { fromPack, availableActions, ...payload } = d;
+    const call = d.id ? this.sod.updateSodRule(d.id, payload) : this.sod.createSodRule(payload);
     call.subscribe({
       next: () => {
         this.saving.set(false);
@@ -198,6 +206,11 @@ export class SodRulesPage implements OnInit {
       },
       error: (e: HttpErrorResponse) => this.error.set(e.status),
     });
+  }
+
+  /** Action permise sur la règle, telle que décidée par le serveur (`availableActions`) : le front n'infère rien. */
+  can(rule: SodRule, code: string): boolean {
+    return !!rule.availableActions?.some((a) => a.code === code);
   }
 
   errorHint(code: number): string {

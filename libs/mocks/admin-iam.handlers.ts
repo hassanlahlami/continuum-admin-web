@@ -216,15 +216,22 @@ const OVERVIEW: AdminOverview = {
 /** Clé localStorage de surcharge e2e des règles SoD (ADM-11) : `forbidden` (403 partout), `conflict` (409 sur modification), `error` (500 en lecture). */
 export const SOD_OVERRIDE_KEY = 'ct-mock-sod';
 
-/** Règles SoD de démonstration . */
+/** Actions d'une règle locale (edit, delete) ; une règle livrée par le pack n'en porte aucune. */
+const SOD_LOCAL_ACTIONS = [
+  { code: 'edit', label: 'Modifier' },
+  { code: 'delete', label: 'Supprimer', style: 'danger' as const },
+];
+
+/** Règles SoD de démonstration : une règle du pack (non modifiable) et une règle locale (modifiable). */
 const SOD_RULES: SodRule[] = [
-  { id: 'e1000000-0000-0000-0000-000000000001', version: 1, featureA: 'finding.write', featureB: 'finding.validate', type: 'STATIC', severity: 'BLOCK', description: 'Auteur et validateur d’un constat doivent être distincts' },
-  { id: 'e1000000-0000-0000-0000-000000000002', version: 1, featureA: 'report.approve', featureB: 'report.publish', type: 'DYNAMIC', severity: 'WARN', description: 'Pas sur le même rapport' },
+  { id: 'e1000000-0000-0000-0000-000000000001', version: 1, featureA: 'finding.write', featureB: 'finding.validate', type: 'STATIC', severity: 'BLOCK', description: 'Auteur et validateur d’un constat doivent être distincts', fromPack: true, availableActions: [] },
+  { id: 'e1000000-0000-0000-0000-000000000002', version: 1, featureA: 'report.approve', featureB: 'report.publish', type: 'DYNAMIC', severity: 'WARN', description: 'Pas sur le même rapport', fromPack: false, availableActions: SOD_LOCAL_ACTIONS },
 ];
 const SOD_CONFLICTS: ListSodConflicts200ResponseInner[] = [
   { user: { id: '00000000-0000-0000-0000-0000000000f1', displayName: 'Inès Gendron', positionLabel: 'Chef de mission', unitLabel: 'Inspection Générale' }, rule: SOD_RULES[0], viaAssignments: ['a55e0000-0000-0000-0000-0000000000a1', 'a55e0000-0000-0000-0000-0000000000a2'] },
 ];
 const sodMode = () => globalThis.localStorage?.getItem(SOD_OVERRIDE_KEY);
+const canSod = (rule: SodRule, code: string) => !!rule.availableActions?.some((a) => a.code === code);
 
 export const adminIamHandlers = [
   // Règles de séparation des tâches (ADM-11) : lecture, création, modification (409 si surcharge `conflict`), suppression (double validation).
@@ -237,7 +244,7 @@ export const adminIamHandlers = [
     if (sodMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
     const body = (await request.json()) as SodRule;
     if (!body.featureA || !body.featureB || body.featureA === body.featureB) return HttpResponse.json({ title: 'Invalid rule' }, { status: 422 });
-    const rule = { ...body, id: 'e1000000-0000-0000-0000-' + String(SOD_RULES.length + 1).padStart(12, '0'), version: 1 };
+    const rule: SodRule = { ...body, id: 'e1000000-0000-0000-0000-' + String(SOD_RULES.length + 1).padStart(12, '0'), version: 1, fromPack: false, availableActions: SOD_LOCAL_ACTIONS };
     SOD_RULES.push(rule);
     return HttpResponse.json(rule, { status: 201 });
   }),
@@ -247,12 +254,15 @@ export const adminIamHandlers = [
     const body = (await request.json()) as SodRule;
     const i = SOD_RULES.findIndex((r) => r.id === params['ruleId']);
     if (i < 0) return new HttpResponse(null, { status: 404 });
-    SOD_RULES[i] = { ...body, id: SOD_RULES[i].id, version: (SOD_RULES[i].version ?? 1) + 1 };
+    if (!canSod(SOD_RULES[i], 'edit')) return new HttpResponse(null, { status: 403 });
+    SOD_RULES[i] = { ...body, id: SOD_RULES[i].id, version: (SOD_RULES[i].version ?? 1) + 1, fromPack: SOD_RULES[i].fromPack, availableActions: SOD_RULES[i].availableActions };
     return HttpResponse.json(SOD_RULES[i]);
   }),
   http.delete('*/api/admin/sod-rules/:ruleId', ({ params }) => {
     if (sodMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
-    if (!SOD_RULES.some((r) => r.id === params['ruleId'])) return new HttpResponse(null, { status: 404 });
+    const rule = SOD_RULES.find((r) => r.id === params['ruleId']);
+    if (!rule) return new HttpResponse(null, { status: 404 });
+    if (!canSod(rule, 'delete')) return new HttpResponse(null, { status: 403 });
     return HttpResponse.json({ state: 'PENDING_APPROVAL', changeRequestId: 'c0000000-0000-0000-0000-000000000002' });
   }),
   http.get('*/api/admin/sod-conflicts', () => sodMode() === 'forbidden' ? new HttpResponse(null, { status: 403 }) : HttpResponse.json(SOD_CONFLICTS)),
