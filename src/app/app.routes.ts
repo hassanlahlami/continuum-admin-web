@@ -9,6 +9,7 @@ import { OverviewPage } from './pages/overview.page';
 import { PositionEditorPage } from './pages/position-editor.page';
 import { PositionsPage } from './pages/positions.page';
 import { RolesPage } from './pages/roles.page';
+import { SodRulesPage } from './pages/sod-rules.page';
 import { UserCreatePage } from './pages/user-create.page';
 import { UserDetailPage } from './pages/user-detail.page';
 import { UsersPage } from './pages/users.page';
@@ -22,6 +23,7 @@ export const routes: Routes = [
   { path: 'positions', component: PositionsPage },
   { path: 'positions/:positionId', component: PositionEditorPage },
   { path: 'roles', component: RolesPage },
+  { path: 'sod-rules', component: SodRulesPage },
   { path: 'assignments', component: AssignPositionPage },
   { path: 'audit-trail', component: AuditTrailPage },
   { path: 'connectors', component: ConnectorsPage },

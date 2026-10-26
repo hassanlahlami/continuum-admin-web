@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { ListSodConflicts200ResponseInner, SodRule, AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -213,7 +213,51 @@ const OVERVIEW: AdminOverview = {
   connectorsDown: 2,
 };
 
+/** Clé localStorage de surcharge e2e des règles SoD (ADM-11) : `forbidden` (403 partout), `conflict` (409 sur modification), `error` (500 en lecture). */
+export const SOD_OVERRIDE_KEY = 'ct-mock-sod';
+
+/** Règles SoD de démonstration . */
+const SOD_RULES: SodRule[] = [
+  { id: 'e1000000-0000-0000-0000-000000000001', version: 1, featureA: 'finding.write', featureB: 'finding.validate', type: 'STATIC', severity: 'BLOCK', description: 'Auteur et validateur d’un constat doivent être distincts' },
+  { id: 'e1000000-0000-0000-0000-000000000002', version: 1, featureA: 'report.approve', featureB: 'report.publish', type: 'DYNAMIC', severity: 'WARN', description: 'Pas sur le même rapport' },
+];
+const SOD_CONFLICTS: ListSodConflicts200ResponseInner[] = [
+  { user: { id: '00000000-0000-0000-0000-0000000000f1', displayName: 'Inès Gendron', positionLabel: 'Chef de mission', unitLabel: 'Inspection Générale' }, rule: SOD_RULES[0], viaAssignments: ['a55e0000-0000-0000-0000-0000000000a1', 'a55e0000-0000-0000-0000-0000000000a2'] },
+];
+const sodMode = () => globalThis.localStorage?.getItem(SOD_OVERRIDE_KEY);
+
 export const adminIamHandlers = [
+  // Règles de séparation des tâches (ADM-11) : lecture, création, modification (409 si surcharge `conflict`), suppression (double validation).
+  http.get('*/api/admin/sod-rules', () => {
+    if (sodMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (sodMode() === 'error') return new HttpResponse(null, { status: 500 });
+    return HttpResponse.json(SOD_RULES);
+  }),
+  http.post('*/api/admin/sod-rules', async ({ request }) => {
+    if (sodMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    const body = (await request.json()) as SodRule;
+    if (!body.featureA || !body.featureB || body.featureA === body.featureB) return HttpResponse.json({ title: 'Invalid rule' }, { status: 422 });
+    const rule = { ...body, id: 'e1000000-0000-0000-0000-' + String(SOD_RULES.length + 1).padStart(12, '0'), version: 1 };
+    SOD_RULES.push(rule);
+    return HttpResponse.json(rule, { status: 201 });
+  }),
+  http.put('*/api/admin/sod-rules/:ruleId', async ({ request, params }) => {
+    if (sodMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (sodMode() === 'conflict') return new HttpResponse(null, { status: 409 });
+    const body = (await request.json()) as SodRule;
+    const i = SOD_RULES.findIndex((r) => r.id === params['ruleId']);
+    if (i < 0) return new HttpResponse(null, { status: 404 });
+    SOD_RULES[i] = { ...body, id: SOD_RULES[i].id, version: (SOD_RULES[i].version ?? 1) + 1 };
+    return HttpResponse.json(SOD_RULES[i]);
+  }),
+  http.delete('*/api/admin/sod-rules/:ruleId', ({ params }) => {
+    if (sodMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (!SOD_RULES.some((r) => r.id === params['ruleId'])) return new HttpResponse(null, { status: 404 });
+    return HttpResponse.json({ state: 'PENDING_APPROVAL', changeRequestId: 'c0000000-0000-0000-0000-000000000002' });
+  }),
+  http.get('*/api/admin/sod-conflicts', () => sodMode() === 'forbidden' ? new HttpResponse(null, { status: 403 }) : HttpResponse.json(SOD_CONFLICTS)),
+
+
   // Accueil Admin Système (ADM-01) ; la clé `OVERVIEW_OVERRIDE_KEY` du localStorage simule refus, panne ou lenteur.
   http.get('*/api/admin/overview', async () => {
     const mode = globalThis.localStorage?.getItem(OVERVIEW_OVERRIDE_KEY);
