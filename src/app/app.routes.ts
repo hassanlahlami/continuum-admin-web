@@ -4,6 +4,7 @@ import { AuditTrailPage } from './pages/audit-trail.page';
 import { AuthzSimulatorPage } from './pages/authz-simulator.page';
 import { CachesPage } from './pages/caches.page';
 import { ConnectorsPage } from './pages/connectors.page';
+import { EntitiesPage } from './pages/entities.page';
 import { LogsPage } from './pages/logs.page';
 import { OverviewPage } from './pages/overview.page';
 import { PendingChangesPage } from './pages/pending-changes.page';
@@ -18,6 +19,7 @@ import { UsersPage } from './pages/users.page';
 /** Routage de l'Admin Système : utilisateurs (annuaire, profil, création), affectations, piste d'audit. */
 export const routes: Routes = [
   { path: '', component: OverviewPage },
+  { path: 'entities', component: EntitiesPage },
   { path: 'users', component: UsersPage },
   { path: 'users/new', component: UserCreatePage },
   { path: 'users/:userId', component: UserDetailPage },

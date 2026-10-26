@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { ChangeRequest, ListSodConflicts200ResponseInner, SodRule, AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { ChangeRequest, Entity, EntityInput, ListSodConflicts200ResponseInner, SodRule, AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -242,7 +242,27 @@ const CHANGE_REQUESTS: ChangeRequest[] = [
 ];
 const crMode = () => globalThis.localStorage?.getItem('ct-mock-change-requests');
 
+/** Entités (tenants) de démonstration (ADM-02) ; surcharge localStorage `ct-mock-entities` : forbidden, error, invalid. */
+const ENTITIES: Entity[] = [
+  { id: 'e2000000-0000-0000-0000-000000000001', code: 'BANQUE-DEMO', label: 'Banque Démo — Maison mère', status: 'ACTIVE', keycloakRealm: 'banque-demo', dataIsolation: 'SCHEMA', packCode: 'PACK-BANQUE', enabledModules: ['AUDIT', 'CCM', 'REPORTING'], locales: ['fr', 'ar'], defaultLocale: 'fr', usersCount: 42 },
+  { id: 'e2000000-0000-0000-0000-000000000002', code: 'BANQUE-DEMO-FILIALE-01', label: 'Banque Démo — Filiale Leasing', status: 'SUSPENDED', keycloakRealm: 'banque-demo-filiale-01', dataIsolation: 'PDB', packCode: 'PACK-BANQUE', enabledModules: ['AUDIT'], locales: ['fr'], defaultLocale: 'fr', usersCount: 7 },
+];
+const entityMode = () => globalThis.localStorage?.getItem('ct-mock-entities');
+
 export const adminIamHandlers = [
+  // Entités (ADM-02) : lecture et création (Job 202 : schéma/PDB, realm, pack ; le serveur valide, 422 si code vide ou en double).
+  http.get('*/api/admin/entities', () => {
+    if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (entityMode() === 'error') return new HttpResponse(null, { status: 500 });
+    return HttpResponse.json(ENTITIES);
+  }),
+  http.post('*/api/admin/entities', async ({ request }) => {
+    if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    const body = (await request.json()) as EntityInput;
+    if (entityMode() === 'invalid' || !body.code?.trim() || ENTITIES.some((e) => e.code === body.code)) return HttpResponse.json({ title: 'Invalid entity' }, { status: 422 });
+    ENTITIES.push({ ...body, id: 'e2000000-0000-0000-0000-' + String(ENTITIES.length + 1).padStart(12, '0'), status: 'PROVISIONING', keycloakRealm: body.code.toLowerCase(), dataIsolation: 'SCHEMA', usersCount: 0 });
+    return HttpResponse.json({ id: 'f0000000-0000-0000-0000-000000000001', type: 'ENTITY_PROVISIONING', status: 'QUEUED', progress: 0 }, { status: 202 });
+  }),
   // Demandes en attente de validation (ADM-14) ; surcharge localStorage `ct-mock-change-requests` : forbidden, error, conflict.
   http.get('*/api/admin/change-requests', ({ request }) => {
     if (crMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
