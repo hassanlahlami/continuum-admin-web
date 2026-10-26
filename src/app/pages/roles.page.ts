@@ -34,14 +34,16 @@ import { ChangeResult, RoleFeatureMatrix, RolesService } from '../../../libs/api
             <span><strong>{{ roleLabel(w.roleId) }}</strong> — {{ w.message }}</span>
           </div>
         }
-        <div class="actions">
-          @if (!editing()) {
-            <button mat-stroked-button type="button" data-cy="roles-edit" (click)="startEdit()">Modifier la matrice</button>
-          } @else {
-            <button mat-flat-button type="button" data-cy="roles-save" [disabled]="!dirty() || saving()" (click)="save()">Enregistrer ({{ changes().length }})</button>
-            <button mat-button type="button" data-cy="roles-cancel" (click)="cancel()">Annuler</button>
-          }
-        </div>
+        @if (updateAction()) {
+          <div class="actions">
+            @if (!editing()) {
+              <button mat-stroked-button type="button" data-cy="roles-edit" (click)="startEdit()">{{ updateAction()?.label }}</button>
+            } @else {
+              <button mat-flat-button type="button" data-cy="roles-save" [disabled]="!dirty() || saving()" (click)="save()">Enregistrer ({{ changes().length }})</button>
+              <button mat-button type="button" data-cy="roles-cancel" (click)="cancel()">Annuler</button>
+            }
+          </div>
+        }
         <mat-card appearance="outlined">
           <mat-card-content class="scroll">
             <table data-cy="roles-matrix">
@@ -65,7 +67,7 @@ import { ChangeResult, RoleFeatureMatrix, RolesService } from '../../../libs/api
                     </th>
                     @for (r of m.roles; track r.id) {
                       <td>
-                        @if (editing()) {
+                        @if (editing() && updateAction()) {
                           <mat-checkbox [checked]="isGranted(r.id, f.code)" (change)="toggle(r.id, f.code, $event.checked)" [attr.data-cy]="'cell-' + r.code + '-' + f.code" [attr.aria-label]="r.label.fr + ' — ' + f.label"></mat-checkbox>
                         } @else if (granted().has(r.id + '|' + f.code)) {
                           <mat-icon class="yes" data-cy="grant-yes" aria-label="Accordée">check</mat-icon>
@@ -114,6 +116,8 @@ export class RolesPage implements OnInit {
     () => new Set((this.matrix()?.grants ?? []).map((g) => g.roleId + '|' + g.featureCode)),
   );
 
+  /** Action de modification décidée par le serveur (`availableActions` de la matrice) : absente → lecture seule. */
+  readonly updateAction = computed(() => this.matrix()?.availableActions?.find((a) => a.code === 'update-matrix') ?? null);
   readonly editing = signal(false);
   readonly saving = signal(false);
   readonly message = signal<string | null>(null);
@@ -146,6 +150,7 @@ export class RolesPage implements OnInit {
   }
 
   startEdit(): void {
+    if (!this.updateAction()) return;
     this.message.set(null);
     this.error.set(null);
     this.editing.set(true);
@@ -164,7 +169,7 @@ export class RolesPage implements OnInit {
 
   save(): void {
     const m = this.matrix();
-    if (!m || !this.dirty()) return;
+    if (!m || !this.updateAction() || !this.dirty()) return;
     this.saving.set(true);
     this.error.set(null);
     this.message.set(null);
