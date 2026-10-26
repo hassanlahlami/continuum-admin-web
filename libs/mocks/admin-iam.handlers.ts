@@ -133,11 +133,12 @@ const USERS: UserAccount[] = [
   },
 ];
 
-/** Référentiel des positions (pack Banque, §2.1) — pour le sélecteur d'affectation. */
+/** Référentiel des positions (pack Banque, §2.1) — liste ADM-07 et sélecteur d'affectation (ADM-10). */
 const POSITIONS: Position[] = [
-  { id: 'd1111111-1111-1111-1111-111111111111', code: 'CHEF_MISSION', label: { fr: 'Chef de mission' }, rank: 20, scope: 'UNIT_TREE', active: true },
-  { id: 'd2222222-2222-2222-2222-222222222222', code: 'INSPECTEUR', label: { fr: 'Inspecteur' }, rank: 30, scope: 'UNIT', active: true },
-  { id: 'd3333333-3333-3333-3333-333333333333', code: 'ADMIN_SYS', label: { fr: 'Administrateur système' }, rank: 10, scope: 'TENANT', active: true },
+  { id: 'd3333333-3333-3333-3333-333333333333', code: 'ADMIN_SYS', label: { fr: 'Administrateur système' }, rank: 10, scope: 'TENANT', active: true, fromPack: true, holdersCount: 1, pendingChange: false },
+  { id: 'd1111111-1111-1111-1111-111111111111', code: 'CHEF_MISSION', label: { fr: 'Chef de mission' }, rank: 20, scope: 'UNIT_TREE', active: true, fromPack: true, unitTypeLabel: 'Direction', reportsToLabel: 'Administrateur système', holdersCount: 1, pendingChange: false },
+  { id: 'd2222222-2222-2222-2222-222222222222', code: 'INSPECTEUR', label: { fr: 'Inspecteur' }, rank: 30, scope: 'UNIT', active: true, fromPack: true, unitTypeLabel: 'Agence', reportsToLabel: 'Chef de mission', holdersCount: 1, pendingChange: true },
+  { id: 'd4444444-4444-4444-4444-444444444444', code: 'AUDITEUR_JUNIOR', label: { fr: 'Auditeur junior' }, rank: 40, scope: 'UNIT', active: false, fromPack: false, unitTypeLabel: 'Agence', reportsToLabel: 'Inspecteur', holdersCount: 0, pendingChange: false },
 ];
 
 /** Arbre des unités (pour le sélecteur d'unité). */
@@ -152,8 +153,11 @@ const ORG_UNITS: OrgUnitNode[] = [
 ];
 
 export const adminIamHandlers = [
-  // Référentiel des positions (sélecteur d'affectation).
-  http.get('*/api/admin/positions', () => HttpResponse.json(POSITIONS)),
+  // Référentiel des positions : actives par défaut, désactivées sur `includeInactive=true` (filtre serveur).
+  http.get('*/api/admin/positions', ({ request }) => {
+    const includeInactive = new URL(request.url).searchParams.get('includeInactive') === 'true';
+    return HttpResponse.json(POSITIONS.filter((p) => includeInactive || p.active));
+  }),
 
   // Arbre des unités (sélecteur d'unité).
   http.get('*/api/admin/org/units', () => HttpResponse.json(ORG_UNITS)),
