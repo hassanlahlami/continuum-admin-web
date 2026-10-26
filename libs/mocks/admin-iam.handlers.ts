@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -198,7 +198,31 @@ const positionDetail = (p: Position): Position => {
 /** Clé localStorage activant la matrice en lecture seule (surcharge utilisée par les specs Cypress). */
 export const READONLY_OVERRIDE_KEY = 'ct-mock-roles-readonly';
 
+/** Clé localStorage de surcharge e2e de l'accueil : `forbidden` (403), `error` (500), `slow` (réponse différée). */
+export const OVERVIEW_OVERRIDE_KEY = 'ct-mock-overview';
+
+const OVERVIEW: AdminOverview = {
+  health: 'DEGRADED',
+  pendingChangeRequests: 3,
+  pendingPublications: 1,
+  openAlerts: 5,
+  usersWithoutAssignment: 7,
+  staticSodConflicts: 0,
+  lastDirectorySyncAt: '2026-02-03T06:00:00Z',
+  licenseExpiresOn: '2027-01-31',
+  connectorsDown: 2,
+};
+
 export const adminIamHandlers = [
+  // Accueil Admin Système (ADM-01) ; la clé `OVERVIEW_OVERRIDE_KEY` du localStorage simule refus, panne ou lenteur.
+  http.get('*/api/admin/overview', async () => {
+    const mode = globalThis.localStorage?.getItem(OVERVIEW_OVERRIDE_KEY);
+    if (mode === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (mode === 'error') return new HttpResponse(null, { status: 500 });
+    if (mode === 'slow') await new Promise((r) => setTimeout(r, 1500));
+    return HttpResponse.json(OVERVIEW);
+  }),
+
   // Surcharge e2e : la clé `READONLY_OVERRIDE_KEY` du localStorage retire `availableActions` (profil sans droit de modification).
   http.get('*/api/admin/role-feature-matrix', () =>
     HttpResponse.json(globalThis.localStorage?.getItem(READONLY_OVERRIDE_KEY) === 'true' ? { ...ROLE_MATRIX, availableActions: [] } : ROLE_MATRIX)),

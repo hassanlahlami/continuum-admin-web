@@ -43,6 +43,13 @@ import { map } from 'rxjs/operators';
         <div class="brand"><mat-icon aria-hidden="true">admin_panel_settings</mat-icon> <span>Continuum · Admin</span></div>
         <mat-nav-list>
           <a mat-list-item routerLink="/" routerLinkActive="active-nav" [routerLinkActiveOptions]="{ exact: true }"
+             data-cy="nav-home"
+             [matTooltip]="collapsed() && !isHandset() ? 'Accueil' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">home</mat-icon>
+            <span matListItemTitle>Accueil</span>
+          </a>
+          <a mat-list-item routerLink="/users" routerLinkActive="active-nav"
              data-cy="nav-users"
              [matTooltip]="collapsed() && !isHandset() ? 'Utilisateurs' : ''" matTooltipPosition="right"
              (click)="isHandset() && drawer.close()">
