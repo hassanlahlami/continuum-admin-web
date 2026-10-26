@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTableModule } from '@angular/material/table';
+import { RouterLink } from '@angular/router';
 import { Position, PositionsService } from '../../../libs/api-clients/admin-iam';
 import { POSITION_SCOPE_LABELS } from '../iam.labels';
 
@@ -26,6 +27,7 @@ import { POSITION_SCOPE_LABELS } from '../iam.labels';
     MatProgressBarModule,
     MatSlideToggleModule,
     MatTableModule,
+    RouterLink,
   ],
   template: `
     <section>
@@ -51,7 +53,7 @@ import { POSITION_SCOPE_LABELS } from '../iam.labels';
               <ng-container matColumnDef="label">
                 <th mat-header-cell *matHeaderCellDef>Position</th>
                 <td mat-cell *matCellDef="let p">
-                  <span class="label">{{ p.label.fr }}</span>
+                  <a class="label" [routerLink]="['/positions', p.id]" data-cy="position-link">{{ p.label.fr }}</a>
                   @if (p.fromPack) { <span class="pack" data-cy="position-pack">Pack</span> }
                 </td>
               </ng-container>
@@ -100,7 +102,8 @@ import { POSITION_SCOPE_LABELS } from '../iam.labels';
       .page-sub { color: var(--ct-color-muted); margin-top: 0; max-width: 72ch; }
       .filters { display: flex; align-items: center; gap: var(--ct-space-3); margin-bottom: var(--ct-space-3); }
       table[mat-table] { width: 100%; background: transparent; }
-      .label { font-weight: 600; }
+      .label { font-weight: 600; color: inherit; text-decoration: none; }
+      .label:hover { text-decoration: underline; }
       .pack { margin-left: var(--ct-space-2); font-size: 0.75rem; color: var(--ct-color-muted); border: 1px solid var(--ct-color-border); border-radius: 999px; padding: 0 var(--ct-space-2); }
       .muted { color: var(--ct-color-muted); }
       mat-chip[data-state='ACTIVE'] { --mdc-chip-elevated-container-color: var(--ct-green-50); color: var(--ct-green-600); }

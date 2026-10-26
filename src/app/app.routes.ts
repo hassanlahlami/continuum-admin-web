@@ -4,6 +4,7 @@ import { AuditTrailPage } from './pages/audit-trail.page';
 import { AuthzSimulatorPage } from './pages/authz-simulator.page';
 import { CachesPage } from './pages/caches.page';
 import { ConnectorsPage } from './pages/connectors.page';
+import { PositionEditorPage } from './pages/position-editor.page';
 import { PositionsPage } from './pages/positions.page';
 import { RolesPage } from './pages/roles.page';
 import { UserCreatePage } from './pages/user-create.page';
@@ -16,6 +17,7 @@ export const routes: Routes = [
   { path: 'users/new', component: UserCreatePage },
   { path: 'users/:userId', component: UserDetailPage },
   { path: 'positions', component: PositionsPage },
+  { path: 'positions/:positionId', component: PositionEditorPage },
   { path: 'roles', component: RolesPage },
   { path: 'assignments', component: AssignPositionPage },
   { path: 'audit-trail', component: AuditTrailPage },

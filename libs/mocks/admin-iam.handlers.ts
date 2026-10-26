@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AssignmentPage, OrgUnitNode, Position, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -172,6 +172,28 @@ const ROLE_MATRIX: RoleFeatureMatrix = {
   sodWarnings: [{ roleId: 'a1111111-1111-1111-1111-111111111111', ruleId: 'a9999999-9999-9999-9999-999999999999', message: 'Gérer les rôles et consulter les utilisateurs sont incompatibles' }],
 };
 
+/** Rôles portés par chaque position (état mutable des mocks, ADM-08), initialisé depuis le pack. */
+const POSITION_ROLE_IDS = new Map<string, string[]>([
+  ['d3333333-3333-3333-3333-333333333333', ['a1111111-1111-1111-1111-111111111111']],
+  ['d1111111-1111-1111-1111-111111111111', ['a2222222-2222-2222-2222-222222222222']],
+  ['d2222222-2222-2222-2222-222222222222', ['a2222222-2222-2222-2222-222222222222']],
+]);
+
+/** Position occupée par l'administrateur courant : toute modification est refusée (403). */
+const SELF_OCCUPIED_POSITION = 'd3333333-3333-3333-3333-333333333333';
+
+const SENSITIVE_FEATURES = new Set(ROLE_MATRIX.features.filter((f) => f.sensitive).map((f) => f.code));
+
+/** Position « détaillée » : rôles portés et fonctionnalités résultantes (union des grants des rôles). */
+const positionDetail = (p: Position): Position => {
+  const roleIds = POSITION_ROLE_IDS.get(p.id) ?? [];
+  return {
+    ...p,
+    roles: ROLE_MATRIX.roles.filter((r) => roleIds.includes(r.id)),
+    resultingFeatures: [...new Set(ROLE_MATRIX.grants.filter((g) => g.roleId !== undefined && roleIds.includes(g.roleId)).flatMap((g) => (g.featureCode ? [g.featureCode] : [])))],
+  };
+};
+
 export const adminIamHandlers = [
   http.get('*/api/admin/role-feature-matrix', () => HttpResponse.json(ROLE_MATRIX)),
 
@@ -182,6 +204,38 @@ export const adminIamHandlers = [
   http.get('*/api/admin/positions', ({ request }) => {
     const includeInactive = new URL(request.url).searchParams.get('includeInactive') === 'true';
     return HttpResponse.json(POSITIONS.filter((p) => includeInactive || p.active));
+  }),
+
+  // Détail d'une position (ADM-08) : rôles et fonctionnalités résultantes calculés depuis la matrice.
+  http.get('*/api/admin/positions/:positionId', ({ params }) => {
+    const p = POSITIONS.find((x) => x.id === params.positionId);
+    return p ? HttpResponse.json(positionDetail(p)) : new HttpResponse(null, { status: 404 });
+  }),
+
+  // Modification (ADM-08) : un rôle qui porte une fonctionnalité sensible passe en double validation.
+  // La position occupée par l'administrateur courant refuse la modification (403, §2.1.8).
+  http.put('*/api/admin/positions/:positionId', async ({ params, request }) => {
+    const p = POSITIONS.find((x) => x.id === params.positionId);
+    if (!p) return new HttpResponse(null, { status: 404 });
+    if (p.id === SELF_OCCUPIED_POSITION) return new HttpResponse(null, { status: 403 });
+    const body = (await request.json()) as PositionInput;
+    const roleIds = body.roleIds ?? [];
+    POSITION_ROLE_IDS.set(p.id, roleIds);
+    p.label = body.label;
+    p.rank = body.rank;
+    p.scope = body.scope;
+    p.maxHoldersPerUnit = body.maxHoldersPerUnit;
+    p.pendingChange = positionDetail(p).resultingFeatures?.some((code) => SENSITIVE_FEATURES.has(code)) ?? false;
+    return HttpResponse.json(positionDetail(p));
+  }),
+
+  // Désactivation / réactivation (ADM-08).
+  http.post('*/api/admin/positions/:positionId/actions/:actionCode', ({ params }) => {
+    const p = POSITIONS.find((x) => x.id === params.positionId);
+    if (!p) return new HttpResponse(null, { status: 404 });
+    if (params.actionCode !== 'deactivate' && params.actionCode !== 'reactivate') return new HttpResponse(null, { status: 404 });
+    p.active = params.actionCode === 'reactivate';
+    return HttpResponse.json(positionDetail(p));
   }),
 
   // Arbre des unités (sélecteur d'unité).
