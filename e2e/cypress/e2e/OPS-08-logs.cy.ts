@@ -62,6 +62,14 @@ describe('OPS-08 — Recherche de logs', () => {
     cy.get('[data-cy=logs-saved-select] option').should('contain', 'Connecteurs');
   });
 
+  it('supprime une requête sauvegardée', () => {
+    cy.visit('/logs');
+    cy.get('[data-cy=logs-saved-select]').select('Erreurs d’intégration');
+    cy.get('[data-cy=logs-saved-delete]').click();
+    cy.get('[data-cy=logs-result]').should('contain', 'Requête supprimée');
+    cy.get('[data-cy=logs-saved-select] option').should('not.contain', 'Erreurs d’intégration');
+  });
+
   it('liste les surcharges de niveau actives avec leur expiration', () => {
     cy.visit('/logs');
     cy.contains('.mat-mdc-tab', 'Niveaux de log').click();
