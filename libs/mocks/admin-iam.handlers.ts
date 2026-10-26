@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AssignmentPage, OrgUnitNode, Position, UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { AssignmentPage, OrgUnitNode, Position, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -152,7 +152,29 @@ const ORG_UNITS: OrgUnitNode[] = [
   },
 ];
 
+/** Matrice rôles × fonctionnalités (ADM-09) avec une fonctionnalité sensible et un conflit SoD. */
+const ROLE_MATRIX: RoleFeatureMatrix = {
+  version: 1,
+  roles: [
+    { id: 'a1111111-1111-1111-1111-111111111111', code: 'ADMIN', label: { fr: 'Administrateur' }, kind: 'ORGANISATIONAL', fromPack: true },
+    { id: 'a2222222-2222-2222-2222-222222222222', code: 'AUDITOR', label: { fr: 'Auditeur' }, kind: 'ORGANISATIONAL', fromPack: true },
+  ],
+  features: [
+    { code: 'admin.user.read', module: 'Utilisateurs', label: 'Consulter les utilisateurs' },
+    { code: 'admin.role.manage', module: 'Rôles', label: 'Gérer les rôles', sensitive: true },
+    { code: 'report.approve', module: 'Rapports', label: 'Approuver un rapport' },
+  ],
+  grants: [
+    { roleId: 'a1111111-1111-1111-1111-111111111111', featureCode: 'admin.user.read' },
+    { roleId: 'a1111111-1111-1111-1111-111111111111', featureCode: 'admin.role.manage' },
+    { roleId: 'a2222222-2222-2222-2222-222222222222', featureCode: 'report.approve' },
+  ],
+  sodWarnings: [{ roleId: 'a1111111-1111-1111-1111-111111111111', ruleId: 'a9999999-9999-9999-9999-999999999999', message: 'Gérer les rôles et consulter les utilisateurs sont incompatibles' }],
+};
+
 export const adminIamHandlers = [
+  http.get('*/api/admin/role-feature-matrix', () => HttpResponse.json(ROLE_MATRIX)),
+
   // Référentiel des positions : actives par défaut, désactivées sur `includeInactive=true` (filtre serveur).
   http.get('*/api/admin/positions', ({ request }) => {
     const includeInactive = new URL(request.url).searchParams.get('includeInactive') === 'true';
