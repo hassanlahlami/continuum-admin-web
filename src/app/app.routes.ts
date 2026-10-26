@@ -7,6 +7,7 @@ import { ConnectorsPage } from './pages/connectors.page';
 import { EntityDetailPage } from './pages/entity-detail.page';
 import { EntitiesPage } from './pages/entities.page';
 import { LogsPage } from './pages/logs.page';
+import { OrgPage } from './pages/org.page';
 import { OverviewPage } from './pages/overview.page';
 import { PendingChangesPage } from './pages/pending-changes.page';
 import { PositionEditorPage } from './pages/position-editor.page';
@@ -22,6 +23,7 @@ export const routes: Routes = [
   { path: '', component: OverviewPage },
   { path: 'entities', component: EntitiesPage },
   { path: 'entities/:entityId', component: EntityDetailPage },
+  { path: 'org', component: OrgPage },
   { path: 'users', component: UsersPage },
   { path: 'users/new', component: UserCreatePage },
   { path: 'users/:userId', component: UserDetailPage },
