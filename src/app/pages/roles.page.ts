@@ -1,8 +1,11 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { RoleFeatureMatrix, RolesService } from '../../../libs/api-clients/admin-iam';
+import { ChangeResult, RoleFeatureMatrix, RolesService } from '../../../libs/api-clients/admin-iam';
 
 /**
  * Rôles et matrice des fonctionnalités (ADM-09, §2.1) — vue en lecture : rôles en colonnes, fonctionnalités
@@ -13,11 +16,14 @@ import { RoleFeatureMatrix, RolesService } from '../../../libs/api-clients/admin
 @Component({
   selector: 'ct-roles',
   standalone: true,
-  imports: [MatCardModule, MatIconModule, MatProgressBarModule],
+  imports: [MatButtonModule, MatCheckboxModule, MatCardModule, MatIconModule, MatProgressBarModule],
   template: `
     <section>
       <header class="page-head"><h1>Rôles et fonctionnalités</h1></header>
       <p class="page-sub">Matrice des fonctionnalités accordées à chaque rôle. Les fonctionnalités sensibles et les conflits de séparation des tâches sont signalés.</p>
+
+      @if (message(); as msg) { <p class="ok" role="status" data-cy="roles-message">{{ msg }}</p> }
+      @if (error(); as code) { <p class="err" role="alert" data-cy="roles-error">{{ errorHint(code) }}</p> }
 
       @if (loading()) { <mat-progress-bar mode="indeterminate" data-cy="roles-loading"></mat-progress-bar> }
 
@@ -28,6 +34,14 @@ import { RoleFeatureMatrix, RolesService } from '../../../libs/api-clients/admin
             <span><strong>{{ roleLabel(w.roleId) }}</strong> — {{ w.message }}</span>
           </div>
         }
+        <div class="actions">
+          @if (!editing()) {
+            <button mat-stroked-button type="button" data-cy="roles-edit" (click)="startEdit()">Modifier la matrice</button>
+          } @else {
+            <button mat-flat-button type="button" data-cy="roles-save" [disabled]="!dirty() || saving()" (click)="save()">Enregistrer ({{ changes().length }})</button>
+            <button mat-button type="button" data-cy="roles-cancel" (click)="cancel()">Annuler</button>
+          }
+        </div>
         <mat-card appearance="outlined">
           <mat-card-content class="scroll">
             <table data-cy="roles-matrix">
@@ -51,7 +65,9 @@ import { RoleFeatureMatrix, RolesService } from '../../../libs/api-clients/admin
                     </th>
                     @for (r of m.roles; track r.id) {
                       <td>
-                        @if (granted().has(r.id + '|' + f.code)) {
+                        @if (editing()) {
+                          <mat-checkbox [checked]="isGranted(r.id, f.code)" (change)="toggle(r.id, f.code, $event.checked)" [attr.data-cy]="'cell-' + r.code + '-' + f.code" [attr.aria-label]="r.label.fr + ' — ' + f.label"></mat-checkbox>
+                        } @else if (granted().has(r.id + '|' + f.code)) {
                           <mat-icon class="yes" data-cy="grant-yes" aria-label="Accordée">check</mat-icon>
                         } @else {
                           <span class="no" aria-label="Non accordée">—</span>
@@ -82,6 +98,9 @@ import { RoleFeatureMatrix, RolesService } from '../../../libs/api-clients/admin
       .sensitive { margin-left: var(--ct-space-2); font-size: 0.75rem; background: var(--ct-amber-50); color: var(--ct-amber-700); border-radius: 999px; padding: 0 var(--ct-space-2); }
       .sod { display: flex; align-items: center; gap: var(--ct-space-2); background: var(--ct-red-50); color: var(--ct-red-700); padding: var(--ct-space-2) var(--ct-space-3); margin-bottom: var(--ct-space-2); }
       .yes { color: var(--ct-green-600); }
+      .actions { margin-bottom: var(--ct-space-2); display: flex; gap: var(--ct-space-2); }
+      .ok { color: var(--ct-green-600); }
+      .err { color: var(--ct-red-700); }
       .no, .muted { color: var(--ct-color-muted); }
     `,
   ],
@@ -95,7 +114,78 @@ export class RolesPage implements OnInit {
     () => new Set((this.matrix()?.grants ?? []).map((g) => g.roleId + '|' + g.featureCode)),
   );
 
+  readonly editing = signal(false);
+  readonly saving = signal(false);
+  readonly message = signal<string | null>(null);
+  readonly error = signal<number | null>(null);
+  /** Brouillon différentiel : clé `roleId|featureCode` → état souhaité. */
+  private readonly draft = signal<Map<string, boolean>>(new Map());
+  readonly changes = computed(() =>
+    [...this.draft()].map(([k, granted]) => {
+      const [roleId, featureCode] = k.split('|');
+      return { roleId, featureCode, granted };
+    }),
+  );
+  readonly dirty = computed(() => this.changes().length > 0);
+
   ngOnInit(): void {
+    this.load();
+  }
+
+  isGranted(roleId: string, code: string): boolean {
+    const k = roleId + '|' + code;
+    return this.draft().get(k) ?? this.granted().has(k);
+  }
+
+  toggle(roleId: string, code: string, checked: boolean): void {
+    const k = roleId + '|' + code;
+    const next = new Map(this.draft());
+    if (this.granted().has(k) === checked) next.delete(k);
+    else next.set(k, checked);
+    this.draft.set(next);
+  }
+
+  startEdit(): void {
+    this.message.set(null);
+    this.error.set(null);
+    this.editing.set(true);
+  }
+
+  cancel(): void {
+    this.draft.set(new Map());
+    this.editing.set(false);
+  }
+
+  errorHint(code: number): string {
+    if (code === 403) return 'Modification refusée par le serveur (droit insuffisant ou règle de protection).';
+    if (code === 409) return 'La matrice a été modifiée entre-temps : elle a été rechargée, refaites votre modification.';
+    return 'Modification non acceptée par le serveur.';
+  }
+
+  save(): void {
+    const m = this.matrix();
+    if (!m || !this.dirty()) return;
+    this.saving.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    this.rolesSvc.updateRoleFeatureMatrix({ version: m.version, changes: this.changes() }).subscribe({
+      next: (r) => {
+        this.saving.set(false);
+        this.cancel();
+        this.load();
+        this.message.set(r.state === ChangeResult.StateEnum.PendingApproval
+          ? 'Modification soumise à double validation (fonctionnalité sensible).'
+          : 'Matrice enregistrée.');
+      },
+      error: (e: HttpErrorResponse) => {
+        this.saving.set(false);
+        this.error.set(e.status);
+        if (e.status === 409) { this.cancel(); this.load(); }
+      },
+    });
+  }
+
+  private load(): void {
     this.loading.set(true);
     this.rolesSvc.getRoleFeatureMatrix().subscribe({
       next: (m) => {

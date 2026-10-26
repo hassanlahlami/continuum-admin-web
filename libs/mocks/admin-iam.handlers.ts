@@ -197,6 +197,27 @@ const positionDetail = (p: Position): Position => {
 export const adminIamHandlers = [
   http.get('*/api/admin/role-feature-matrix', () => HttpResponse.json(ROLE_MATRIX)),
 
+  // Modification différentielle (ADM-09) : version périmée → 409 ; retirer à l'administrateur courant sa gestion
+  // des rôles → 403 ; toucher une fonctionnalité sensible → double validation (rien n'est appliqué).
+  http.put('*/api/admin/role-feature-matrix', async ({ request }) => {
+    const body = (await request.json()) as { version: number; changes: { roleId: string; featureCode: string; granted: boolean }[] };
+    // Sentinelle de concurrence : retirer « report.approve » à l'auditeur simule une matrice modifiée entre-temps.
+    if (body.version !== ROLE_MATRIX.version || body.changes.some((c) => c.roleId === ROLE_MATRIX.roles[1].id && c.featureCode === 'report.approve' && !c.granted)) return new HttpResponse(null, { status: 409 });
+    if (body.changes.some((c) => c.roleId === ROLE_MATRIX.roles[0].id && c.featureCode === 'admin.role.manage' && !c.granted)) {
+      return new HttpResponse(null, { status: 403 });
+    }
+    if (body.changes.some((c) => SENSITIVE_FEATURES.has(c.featureCode))) {
+      return HttpResponse.json({ state: 'PENDING_APPROVAL', changeRequestId: 'c0000000-0000-0000-0000-000000000001' });
+    }
+    for (const c of body.changes) {
+      const i = ROLE_MATRIX.grants.findIndex((g) => g.roleId === c.roleId && g.featureCode === c.featureCode);
+      if (c.granted && i < 0) ROLE_MATRIX.grants.push({ roleId: c.roleId, featureCode: c.featureCode });
+      if (!c.granted && i >= 0) ROLE_MATRIX.grants.splice(i, 1);
+    }
+    ROLE_MATRIX.version += 1;
+    return HttpResponse.json({ state: 'APPLIED' });
+  }),
+
   // Catalogue des fonctionnalités (lecture seule), groupé par module côté contrat.
   http.get('*/api/admin/features', () => HttpResponse.json(ROLE_MATRIX.features)),
 

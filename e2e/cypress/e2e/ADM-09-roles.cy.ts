@@ -29,4 +29,52 @@ describe('ADM-09 — Rôles et matrice', () => {
     cy.get('[data-cy=nav-roles]').click();
     cy.url().should('include', '/roles');
   });
+
+  describe('édition (updateRoleFeatureMatrix)', () => {
+    const cell = (role: string, code: string) => `[data-cy="cell-${role}-${code}"] input`;
+
+    it('enregistre un différentiel non sensible (APPLIED) et recharge la matrice', () => {
+      cy.visit('/roles');
+      cy.get('[data-cy=roles-edit]').click();
+      cy.get('[data-cy=roles-save]').should('be.disabled');
+      cy.get(cell('AUDITOR', 'admin.user.read')).check({ force: true });
+      cy.get('[data-cy=roles-save]').should('contain', '(1)').click();
+      cy.get('[data-cy=roles-message]').should('contain', 'enregistrée');
+      cy.get('[data-cy=grant-yes]').should('have.length', 4);
+    });
+
+    it('soumet à double validation une fonctionnalité sensible', () => {
+      cy.visit('/roles');
+      cy.get('[data-cy=roles-edit]').click();
+      cy.get(cell('AUDITOR', 'admin.role.manage')).check({ force: true });
+      cy.get('[data-cy=roles-save]').click();
+      cy.get('[data-cy=roles-message]').should('contain', 'double validation');
+      cy.get('[data-cy=grant-yes]').should('have.length', 3);
+    });
+
+    it('affiche le refus serveur (403) sans appliquer', () => {
+      cy.visit('/roles');
+      cy.get('[data-cy=roles-edit]').click();
+      cy.get(cell('ADMIN', 'admin.role.manage')).uncheck({ force: true });
+      cy.get('[data-cy=roles-save]').click();
+      cy.get('[data-cy=roles-error]').should('contain', 'refusée');
+    });
+
+    it('gère le conflit de version (409) en rechargeant', () => {
+      cy.visit('/roles');
+      cy.get('[data-cy=roles-edit]').click();
+      cy.get(cell('AUDITOR', 'report.approve')).uncheck({ force: true });
+      cy.get('[data-cy=roles-save]').click();
+      cy.get('[data-cy=roles-error]').should('contain', 'modifiée entre-temps');
+      cy.get('[data-cy=roles-save]').should('not.exist');
+    });
+
+    it('annule le brouillon', () => {
+      cy.visit('/roles');
+      cy.get('[data-cy=roles-edit]').click();
+      cy.get(cell('ADMIN', 'admin.user.read')).uncheck({ force: true });
+      cy.get('[data-cy=roles-cancel]').click();
+      cy.get('[data-cy=grant-yes]').should('have.length', 3);
+    });
+  });
 });
