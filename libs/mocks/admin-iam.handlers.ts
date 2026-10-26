@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { ChangeRequest, Entity, EntityInput, ListSodConflicts200ResponseInner, SodRule, AdminOverview, AssignmentPage, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage } from '../api-clients/admin-iam';
+import type { ChangeRequest, Entity, EntityInput, ListSodConflicts200ResponseInner, SodRule, AdminOverview, AssignmentPage, OrgUnitInput, OrgUnitNode, Position, PositionInput, RoleFeatureMatrix, UserAccount, UserPage, UnitType } from '../api-clients/admin-iam';
 
 /**
  * Mocks MSW de l'administration IAM (front-first, GUIDE §6) — annuaire des utilisateurs, fiches
@@ -148,9 +148,27 @@ const ORG_UNITS: OrgUnitNode[] = [
     code: AUDIT_UNIT.code,
     label: AUDIT_UNIT.label,
     typeLabel: 'Direction',
-    children: [{ id: INSPECTION_UNIT.id, code: INSPECTION_UNIT.code, label: INSPECTION_UNIT.label, typeLabel: 'Agence' }],
+    assignmentsCount: 3,
+    children: [{ id: INSPECTION_UNIT.id, code: INSPECTION_UNIT.code, label: INSPECTION_UNIT.label, typeLabel: 'Agence', assignmentsCount: 5 }],
   },
+  { id: 'a2000000-0000-0000-0000-000000000009', code: 'DIR-RISQUES', label: 'Direction des risques', typeLabel: 'Direction', assignmentsCount: 2, children: [] },
 ];
+
+/** Types d'unités (ADM-06) ; surcharge localStorage `ct-mock-org` : forbidden, error, conflict. */
+const UNIT_TYPES: UnitType[] = [
+  { id: 'b1000000-0000-0000-0000-000000000001', code: 'DIRECTION', label: { fr: 'Direction', en: 'Directorate' }, depth: 1 },
+  { id: 'b1000000-0000-0000-0000-000000000002', code: 'AGENCE', label: { fr: 'Agence' }, depth: 2 },
+];
+const orgMode = () => globalThis.localStorage?.getItem('ct-mock-org');
+const findUnit = (nodes: OrgUnitNode[], id: string): { node: OrgUnitNode; siblings: OrgUnitNode[] } | null => {
+  for (const n of nodes) {
+    if (n.id === id) return { node: n, siblings: nodes };
+    const r = findUnit(n.children ?? [], id);
+    if (r) return r;
+  }
+  return null;
+};
+const pruneClosed = (nodes: OrgUnitNode[]): OrgUnitNode[] => nodes.filter((n) => !n.closed).map((n) => ({ ...n, children: pruneClosed(n.children ?? []) }));
 
 /** Matrice rôles × fonctionnalités (ADM-09) avec une fonctionnalité sensible et un conflit SoD. */
 const ROLE_MATRIX: RoleFeatureMatrix = {
@@ -421,7 +439,70 @@ export const adminIamHandlers = [
   }),
 
   // Arbre des unités (sélecteur d'unité).
-  http.get('*/api/admin/org/units', () => HttpResponse.json(ORG_UNITS)),
+  // Organigramme (ADM-06) : types d'unités, arbre, création, modification, déplacement / fermeture (le serveur valide : 422, 409).
+  http.get('*/api/admin/org/units', ({ request }) => {
+    if (orgMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (orgMode() === 'error') return new HttpResponse(null, { status: 500 });
+    return HttpResponse.json(new URL(request.url).searchParams.get('includeClosed') === 'true' ? ORG_UNITS : pruneClosed(ORG_UNITS));
+  }),
+  http.post('*/api/admin/org/units', async ({ request }) => {
+    if (orgMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    const body = (await request.json()) as OrgUnitInput;
+    const type = UNIT_TYPES.find((t) => t.id === body.unitTypeId);
+    if (!body.code?.trim() || !body.label?.fr?.trim() || !type || JSON.stringify(ORG_UNITS).includes('"code":"' + body.code + '"')) return HttpResponse.json({ title: 'Invalid unit' }, { status: 422 });
+    const node: OrgUnitNode = { id: 'a2000000-0000-0000-0000-' + String(Date.now() % 1e12).padStart(12, '0'), code: body.code, label: body.label.fr, typeLabel: type.label.fr, assignmentsCount: 0, children: [] };
+    const parent = body.parentId ? findUnit(ORG_UNITS, body.parentId) : null;
+    (parent ? (parent.node.children ??= []) : ORG_UNITS).push(node);
+    return HttpResponse.json(node, { status: 201 });
+  }),
+  http.put('*/api/admin/org/units/:id', async ({ request, params }) => {
+    if (orgMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (orgMode() === 'conflict') return new HttpResponse(null, { status: 409 });
+    const body = (await request.json()) as OrgUnitInput;
+    const u = findUnit(ORG_UNITS, params['id'] as string);
+    if (!u) return new HttpResponse(null, { status: 404 });
+    if (!body.code?.trim() || !body.label?.fr?.trim()) return HttpResponse.json({ title: 'Invalid unit' }, { status: 422 });
+    Object.assign(u.node, { code: body.code, label: body.label.fr });
+    return HttpResponse.json(u.node);
+  }),
+  http.post('*/api/admin/org/units/:id/actions/:code', async ({ request, params }) => {
+    if (orgMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (orgMode() === 'conflict') return new HttpResponse(null, { status: 409 });
+    const body = (await request.json()) as { payload?: { parentId?: string } };
+    const u = findUnit(ORG_UNITS, params['id'] as string);
+    if (!u) return new HttpResponse(null, { status: 404 });
+    if (params['code'] === 'close') { u.node.closed = true; return HttpResponse.json(u.node); }
+    if (params['code'] === 'move') {
+      const target = body.payload?.parentId ? findUnit(ORG_UNITS, body.payload.parentId) : null;
+      if (!target || target.node.id === u.node.id || findUnit(u.node.children ?? [], target.node.id)) return HttpResponse.json({ title: 'Invalid target' }, { status: 422 });
+      u.siblings.splice(u.siblings.indexOf(u.node), 1);
+      (target.node.children ??= []).push(u.node);
+      return HttpResponse.json(u.node);
+    }
+    return new HttpResponse(null, { status: 422 });
+  }),
+  http.get('*/api/admin/org/unit-types', () => {
+    if (orgMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    return HttpResponse.json(UNIT_TYPES);
+  }),
+  http.post('*/api/admin/org/unit-types', async ({ request }) => {
+    if (orgMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    const body = (await request.json()) as UnitType;
+    if (!body.code?.trim() || !body.label?.fr?.trim() || UNIT_TYPES.some((t) => t.code === body.code)) return HttpResponse.json({ title: 'Invalid unit type' }, { status: 422 });
+    const t = { ...body, id: 'b1000000-0000-0000-0000-' + String(UNIT_TYPES.length + 1).padStart(12, '0') };
+    UNIT_TYPES.push(t);
+    return HttpResponse.json(t, { status: 201 });
+  }),
+  http.put('*/api/admin/org/unit-types/:id', async ({ request, params }) => {
+    if (orgMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (orgMode() === 'conflict') return new HttpResponse(null, { status: 409 });
+    const body = (await request.json()) as UnitType;
+    const t = UNIT_TYPES.find((x) => x.id === params['id']);
+    if (!t) return new HttpResponse(null, { status: 404 });
+    if (!body.label?.fr?.trim()) return HttpResponse.json({ title: 'Invalid unit type' }, { status: 422 });
+    Object.assign(t, { label: body.label, depth: body.depth });
+    return HttpResponse.json(t);
+  }),
 
   // Affectations existantes (aperçu récent sur la page d'affectation).
   http.get('*/api/admin/assignments', () => {
