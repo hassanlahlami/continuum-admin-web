@@ -7,14 +7,14 @@ describe('USR-01 — Utilisateurs', () => {
   beforeEach(() => cy.viewport(1280, 800));
 
   it('affiche l’annuaire (parcours nominal)', () => {
-    cy.visit('/');
+    cy.visit('/users');
     cy.get('[data-cy=users-table]').should('exist');
     cy.get('[data-cy=user-row]').should('have.length', 7);
     cy.get('[data-cy=users-table]').should('contain', 'Inès Gendron').and('contain', 'ines.gendron');
   });
 
   it('filtre par statut (reflété dans l’URL, filtrage serveur)', () => {
-    cy.visit('/');
+    cy.visit('/users');
     cy.get('[data-cy=users-status]').click();
     cy.get('mat-option').contains('Verrouillé').click();
     cy.get('[data-cy=users-apply]').click();
@@ -24,7 +24,7 @@ describe('USR-01 — Utilisateurs', () => {
   });
 
   it('ouvre le profil d’un utilisateur (identité + affectations)', () => {
-    cy.visit('/');
+    cy.visit('/users');
     cy.get('[data-cy=user-row]').first().click();
     cy.url().should('match', /\/users\/[0-9a-f-]+$/);
     cy.get('[data-cy=user-name]').should('contain', 'Inès Gendron');
@@ -33,7 +33,7 @@ describe('USR-01 — Utilisateurs', () => {
   });
 
   it('crée un compte local puis affiche son profil', () => {
-    cy.visit('/');
+    cy.visit('/users');
     cy.get('[data-cy=users-create]').click();
     cy.location('pathname').should('eq', '/users/new');
     cy.get('[data-cy=create-firstname]').type('Nadia');

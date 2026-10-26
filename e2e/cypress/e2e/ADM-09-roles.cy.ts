@@ -30,6 +30,12 @@ describe('ADM-09 — Rôles et matrice', () => {
     cy.url().should('include', '/roles');
   });
 
+  it('masque l’édition sans update-matrix (surcharge lecture seule)', () => {
+    cy.visit('/roles', { onBeforeLoad: (win) => win.localStorage.setItem('ct-mock-roles-readonly', 'true') });
+    cy.get('[data-cy=roles-matrix]').should('be.visible');
+    cy.get('[data-cy=roles-edit]').should('not.exist');
+  });
+
   describe('édition (updateRoleFeatureMatrix)', () => {
     const cell = (role: string, code: string) => `[data-cy="cell-${role}-${code}"] input`;
 
