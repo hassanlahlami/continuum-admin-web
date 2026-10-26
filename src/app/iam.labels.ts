@@ -1,4 +1,4 @@
-import { Assignment, UserAccount } from '../../libs/api-clients/admin-iam';
+import { Assignment, Position, UserAccount } from '../../libs/api-clients/admin-iam';
 
 /**
  * Libellés d'affichage (français) des énumérations fermées du contrat IAM. Il ne s'agit pas de
@@ -28,4 +28,10 @@ export const ASSIGNMENT_STATE_LABELS: Record<Assignment.StateEnum, string> = {
   ACTIVE: 'Active',
   FUTURE: 'À venir',
   ENDED: 'Terminée',
+};
+
+export const POSITION_SCOPE_LABELS: Record<Position.ScopeEnum, string> = {
+  UNIT: 'Unité',
+  UNIT_TREE: 'Unité et sous-unités',
+  TENANT: 'Toute l’entité',
 };

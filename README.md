@@ -27,7 +27,7 @@ npm run serve:live   # configuration « live » (vrai backend + OIDC)
 npm run e2e          # Cypress (sert le mock puis lance e2e/)
 ```
 
-Les tests e2e utilisent des sélecteurs `data-cy` uniquement (D36) ; suite actuelle : `ADM-10`
+Les tests e2e utilisent des sélecteurs `data-cy` uniquement (D36) ; suite actuelle : `ADM-07` (liste des positions), `ADM-10`
 (affecter une position — décision serveur, SoD, thème).
 
 ## Conventions
