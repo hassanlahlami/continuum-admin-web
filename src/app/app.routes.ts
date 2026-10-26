@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { AssignPositionPage } from './pages/assign-position.page';
 import { AuditTrailPage } from './pages/audit-trail.page';
+import { AuthzSimulatorPage } from './pages/authz-simulator.page';
 import { ConnectorsPage } from './pages/connectors.page';
 import { PositionsPage } from './pages/positions.page';
 import { RolesPage } from './pages/roles.page';
@@ -18,5 +19,6 @@ export const routes: Routes = [
   { path: 'assignments', component: AssignPositionPage },
   { path: 'audit-trail', component: AuditTrailPage },
   { path: 'connectors', component: ConnectorsPage },
+  { path: 'authz-simulator', component: AuthzSimulatorPage },
   { path: '**', redirectTo: '' },
 ];
