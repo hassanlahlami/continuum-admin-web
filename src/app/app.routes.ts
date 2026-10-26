@@ -4,6 +4,7 @@ import { AuditTrailPage } from './pages/audit-trail.page';
 import { AuthzSimulatorPage } from './pages/authz-simulator.page';
 import { CachesPage } from './pages/caches.page';
 import { ConnectorsPage } from './pages/connectors.page';
+import { LogsPage } from './pages/logs.page';
 import { PositionEditorPage } from './pages/position-editor.page';
 import { PositionsPage } from './pages/positions.page';
 import { RolesPage } from './pages/roles.page';
@@ -23,6 +24,7 @@ export const routes: Routes = [
   { path: 'audit-trail', component: AuditTrailPage },
   { path: 'connectors', component: ConnectorsPage },
   { path: 'caches', component: CachesPage },
+  { path: 'logs', component: LogsPage },
   { path: 'authz-simulator', component: AuthzSimulatorPage },
   { path: '**', redirectTo: '' },
 ];
