@@ -170,6 +170,7 @@ const ROLE_MATRIX: RoleFeatureMatrix = {
     { roleId: 'a2222222-2222-2222-2222-222222222222', featureCode: 'report.approve' },
   ],
   sodWarnings: [{ roleId: 'a1111111-1111-1111-1111-111111111111', ruleId: 'a9999999-9999-9999-9999-999999999999', message: 'Gérer les rôles et consulter les utilisateurs sont incompatibles' }],
+  availableActions: [{ code: 'update-matrix', label: 'Modifier la matrice', style: 'primary' }],
 };
 
 /** Rôles portés par chaque position (état mutable des mocks, ADM-08), initialisé depuis le pack. */
@@ -201,6 +202,7 @@ export const adminIamHandlers = [
   // des rôles → 403 ; toucher une fonctionnalité sensible → double validation (rien n'est appliqué).
   http.put('*/api/admin/role-feature-matrix', async ({ request }) => {
     const body = (await request.json()) as { version: number; changes: { roleId: string; featureCode: string; granted: boolean }[] };
+    if (!ROLE_MATRIX.availableActions?.some((a) => a.code === 'update-matrix')) return new HttpResponse(null, { status: 403 });
     // Sentinelle de concurrence : retirer « report.approve » à l'auditeur simule une matrice modifiée entre-temps.
     if (body.version !== ROLE_MATRIX.version || body.changes.some((c) => c.roleId === ROLE_MATRIX.roles[1].id && c.featureCode === 'report.approve' && !c.granted)) return new HttpResponse(null, { status: 409 });
     if (body.changes.some((c) => c.roleId === ROLE_MATRIX.roles[0].id && c.featureCode === 'admin.role.manage' && !c.granted)) {
