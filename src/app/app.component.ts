@@ -84,6 +84,20 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">cable</mat-icon>
             <span matListItemTitle>Connecteurs</span>
           </a>
+          <a mat-list-item routerLink="/caches" routerLinkActive="active-nav"
+             data-cy="nav-caches"
+             [matTooltip]="collapsed() && !isHandset() ? 'Caches' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">memory</mat-icon>
+            <span matListItemTitle>Caches</span>
+          </a>
+          <a mat-list-item routerLink="/authz-simulator" routerLinkActive="active-nav"
+             data-cy="nav-authz-simulator"
+             [matTooltip]="collapsed() && !isHandset() ? 'Simulateur' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">manage_search</mat-icon>
+            <span matListItemTitle>Simulateur</span>
+          </a>
         </mat-nav-list>
       </mat-sidenav>
 

@@ -175,6 +175,9 @@ const ROLE_MATRIX: RoleFeatureMatrix = {
 export const adminIamHandlers = [
   http.get('*/api/admin/role-feature-matrix', () => HttpResponse.json(ROLE_MATRIX)),
 
+  // Catalogue des fonctionnalités (lecture seule), groupé par module côté contrat.
+  http.get('*/api/admin/features', () => HttpResponse.json(ROLE_MATRIX.features)),
+
   // Référentiel des positions : actives par défaut, désactivées sur `includeInactive=true` (filtre serveur).
   http.get('*/api/admin/positions', ({ request }) => {
     const includeInactive = new URL(request.url).searchParams.get('includeInactive') === 'true';
@@ -259,5 +262,49 @@ export const adminIamHandlers = [
       { id: 'a55e0000-0000-0000-0000-000000000001', state: 'ACTIVE' },
       { status: 201 },
     );
+  }),
+
+  // Simulateur « X peut-il faire F ? » (ADM-12). Sans `featureCode` : liste des fonctionnalités accordées.
+  // L'utilisateur sentinelle SoD est refusé à cause d'un conflit ; les autres reçoivent la décision démo.
+  http.post('*/api/admin/authz-simulations', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as { userId?: string; featureCode?: string } | null;
+    const userId = body?.userId ?? '';
+    const user = USERS.find((u) => u.id === userId);
+    if (!user) {
+      return HttpResponse.json({ title: 'Introuvable', detail: 'Utilisateur inconnu.' }, { status: 404, headers: { 'content-type': 'application/problem+json' } });
+    }
+    if (userId === SOD_USER) {
+      return HttpResponse.json({
+        allowed: false,
+        explanation: [
+          { step: 'Affectation « Chef de département Inspection » (titulaire)', result: 'GRANTS' },
+          { step: 'Règle de séparation des tâches « création + validation »', result: 'BLOCKED_BY_SOD' },
+        ],
+      });
+    }
+    const explanation = [
+      { step: 'Affectation « Inspecteur » (titulaire, depuis 2026-01-01)', result: 'GRANTS' as const },
+      { step: 'Rôle « Auditeur » : fonctionnalité couverte sur l’unité', result: 'GRANTS' as const },
+    ];
+    if (!body?.featureCode) {
+      return HttpResponse.json({ allowed: true, features: [{ code: 'report.approve', scopes: ['UNIT'] }, { code: 'admin.user.read', scopes: ['TENANT'] }], explanation: [] });
+    }
+    const allowed = body.featureCode === 'report.approve';
+    return HttpResponse.json({
+      allowed,
+      explanation: allowed ? explanation : [{ step: 'Aucun rôle de l’affectation n’accorde cette fonctionnalité', result: 'DOES_NOT_COVER' as const }],
+    });
+  }),
+
+  // « Qui peut faire F sur R ? » — personnes habilitées et position qui le permet.
+  http.post('*/api/admin/authz-simulations/who-can', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as { featureCode?: string } | null;
+    if (body?.featureCode !== 'report.approve') {
+      return HttpResponse.json([]);
+    }
+    return HttpResponse.json([
+      { user: { id: USERS[0].id, displayName: USERS[0].displayName }, via: 'Position « Inspecteur » (Agence A001, portée UNIT)' },
+      { user: { id: USERS[1]?.id ?? USERS[0].id, displayName: USERS[1]?.displayName ?? USERS[0].displayName }, via: 'Position « Chef de mission » (Inspection Générale, portée UNIT_TREE)' },
+    ]);
   }),
 ];

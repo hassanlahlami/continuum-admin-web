@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuditEventPage, Connector, ConnectorExecutionPage } from '../api-clients/operations';
+import type { AuditEventPage, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job } from '../api-clients/operations';
 
 /**
  * Mocks MSW du module « operations » (Admin Système, front-first D32) — piste d'audit des opérations.
@@ -78,7 +78,54 @@ const EXECUTIONS: ConnectorExecutionPage = {
   ],
 };
 
+/** Régions de cache Ehcache (OPS-07) : entrées, mémoire, taux de succès, dernière purge, état par instance. */
+const CACHE_NODES = ['backend-app-1', 'backend-app-2'];
+const CACHES: CacheRegion[] = [
+  {
+    region: 'iam-structure', entries: 412, heapBytes: 1843200, hitRatio: 0.97, ttl: 'PT1H',
+    lastEviction: { at: '2026-02-03T07:30:00Z', by: { id: '00000000-0000-0000-0000-0000000000f3', displayName: 'Salma Benali' }, reason: 'Mise à jour de l’organigramme' },
+    instances: [{ node: CACHE_NODES[0], entries: 206 }, { node: CACHE_NODES[1], entries: 206 }],
+  },
+  {
+    region: 'parametrage', entries: 96, heapBytes: 524288, hitRatio: 0.88, ttl: 'PT15M',
+    instances: [{ node: CACHE_NODES[0], entries: 48 }, { node: CACHE_NODES[1], entries: 48 }],
+  },
+  {
+    region: 'theme', entries: 4, heapBytes: 65536, hitRatio: 0.99, ttl: 'PT24H',
+    instances: [{ node: CACHE_NODES[0], entries: 2 }, { node: CACHE_NODES[1], entries: 2 }],
+  },
+];
+/** Purge diffusée à toutes les instances : accusés par instance (« N/N instances purgées »). */
+const evictionResult = (): EvictionResult => ({ instancesExpected: CACHE_NODES.length, instancesAcknowledged: CACHE_NODES.length });
+const purged = (c: CacheRegion, reason: string): CacheRegion => ({
+  ...c,
+  entries: 0,
+  lastEviction: { at: new Date().toISOString(), by: { id: '00000000-0000-0000-0000-0000000000f3', displayName: 'Salma Benali' }, reason },
+  instances: c.instances?.map((i) => ({ ...i, entries: 0 })),
+});
+
 export const operationsHandlers = [
+  // Caches de paramétrage (OPS-07) : le motif est obligatoire (minLength 10 du contrat, sinon 422).
+  http.get('*/api/admin/caches', () => HttpResponse.json(CACHES)),
+  http.delete('*/api/admin/caches', ({ request }) => {
+    const reason = new URL(request.url).searchParams.get('reason') ?? '';
+    if (reason.length < 10) return HttpResponse.json({ title: 'Motif obligatoire' }, { status: 422 });
+    CACHES.forEach((c, i) => (CACHES[i] = purged(c, reason)));
+    return HttpResponse.json(evictionResult());
+  }),
+  http.delete('*/api/admin/caches/:region', ({ params, request }) => {
+    const reason = new URL(request.url).searchParams.get('reason') ?? '';
+    if (reason.length < 10) return HttpResponse.json({ title: 'Motif obligatoire' }, { status: 422 });
+    const i = CACHES.findIndex((c) => c.region === params['region']);
+    if (i < 0) return new HttpResponse(null, { status: 404 });
+    CACHES[i] = purged(CACHES[i], reason);
+    return HttpResponse.json(evictionResult());
+  }),
+  http.post('*/api/admin/caches/warmup', () => {
+    const job: Job = { id: '00000000-0000-0000-0000-0000000000b1', type: 'CACHE_WARMUP', status: 'QUEUED' };
+    return HttpResponse.json(job, { status: 202 });
+  }),
+
   http.get('*/api/admin/audit-trail/events', ({ request }) => {
     const url = new URL(request.url);
     const eventType = url.searchParams.get('eventType')?.toUpperCase();

@@ -1,4 +1,4 @@
-import { Assignment, Position, UserAccount } from '../../libs/api-clients/admin-iam';
+import { Assignment, AuthzSimulationResultExplanationInner, Position, UserAccount } from '../../libs/api-clients/admin-iam';
 
 /**
  * Libellés d'affichage (français) des énumérations fermées du contrat IAM. Il ne s'agit pas de
@@ -34,4 +34,11 @@ export const POSITION_SCOPE_LABELS: Record<Position.ScopeEnum, string> = {
   UNIT: 'Unité',
   UNIT_TREE: 'Unité et sous-unités',
   TENANT: 'Toute l’entité',
+};
+
+export const AUTHZ_RESULT_LABELS: Record<AuthzSimulationResultExplanationInner.ResultEnum, string> = {
+  GRANTS: 'Accorde',
+  DOES_NOT_COVER: 'Ne couvre pas',
+  BLOCKED_BY_SOD: 'Bloqué (séparation des tâches)',
+  MODULE_DISABLED: 'Module désactivé',
 };
