@@ -63,6 +63,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">receipt_long</mat-icon>
             <span matListItemTitle>Piste d'audit</span>
           </a>
+          <a mat-list-item routerLink="/connectors" routerLinkActive="active-nav"
+             data-cy="nav-connectors"
+             [matTooltip]="collapsed() && !isHandset() ? 'Connecteurs' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">cable</mat-icon>
+            <span matListItemTitle>Connecteurs</span>
+          </a>
         </mat-nav-list>
       </mat-sidenav>
 
