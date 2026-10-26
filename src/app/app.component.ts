@@ -56,6 +56,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">work</mat-icon>
             <span matListItemTitle>Positions</span>
           </a>
+          <a mat-list-item routerLink="/roles" routerLinkActive="active-nav"
+             data-cy="nav-roles"
+             [matTooltip]="collapsed() && !isHandset() ? 'Rôles' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">rule</mat-icon>
+            <span matListItemTitle>Rôles</span>
+          </a>
           <a mat-list-item routerLink="/assignments" routerLinkActive="active-nav"
              data-cy="nav-assignments"
              [matTooltip]="collapsed() && !isHandset() ? 'Affectations' : ''" matTooltipPosition="right"
