@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuditEventPage } from '../api-clients/operations';
+import type { AuditEventPage, Connector, ConnectorExecutionPage } from '../api-clients/operations';
 
 /**
  * Mocks MSW du module « operations » (Admin Système, front-first D32) — piste d'audit des opérations.
@@ -53,6 +53,31 @@ const EVENTS: NonNullable<AuditEventPage['items']> = [
   },
 ];
 
+const act = (enabled: boolean): NonNullable<Connector['availableActions']> => [
+  { code: 'test', label: 'Tester la connexion' },
+  enabled ? { code: 'disable', label: 'Désactiver', style: 'danger', requiresComment: true } : { code: 'enable', label: 'Activer' },
+];
+const CONNECTORS: Connector[] = [
+  {
+    id: '00000000-0000-0000-0000-0000000000c1', version: 1, code: 'ERP-CORE', kind: 'REST', erpType: 'CBS',
+    endpoint: 'https://erp.example.test/api', timeoutMs: 5000, enabled: true, health: 'UP', circuitBreaker: 'CLOSED',
+    lastExecutionAt: '2026-02-03T09:00:00Z', lastTestResult: { success: true, latencyMs: 84, message: 'OK' },
+    availableActions: act(true),
+  },
+  {
+    id: '00000000-0000-0000-0000-0000000000c2', version: 1, code: 'ERP-LEGACY', kind: 'SOAP',
+    endpoint: 'https://legacy.example.test/ws', timeoutMs: 8000, enabled: false, health: 'DOWN', circuitBreaker: 'OPEN',
+    availableActions: act(false),
+  },
+];
+const EXECUTIONS: ConnectorExecutionPage = {
+  page: 0, size: 20, totalItems: 2, totalPages: 1,
+  items: [
+    { at: '2026-02-03T09:00:00Z', operation: 'pullAccounts', outcome: 'SUCCESS', durationMs: 412, records: 1280 },
+    { at: '2026-02-03T08:00:00Z', operation: 'pullAccounts', outcome: 'RETRIED', durationMs: 5120, records: 1280 },
+  ],
+};
+
 export const operationsHandlers = [
   http.get('*/api/admin/audit-trail/events', ({ request }) => {
     const url = new URL(request.url);
@@ -65,5 +90,17 @@ export const operationsHandlers = [
     );
     const page: AuditEventPage = { page: 0, size: 20, totalItems: items.length, totalPages: 1, items };
     return HttpResponse.json(page);
+  }),
+  http.get('*/api/admin/connectors', () => HttpResponse.json(CONNECTORS)),
+  http.get('*/api/admin/connectors/:id/executions', () => HttpResponse.json(EXECUTIONS)),
+  http.post('*/api/admin/connectors/:id/actions/:code', async ({ params }) => {
+    const c = CONNECTORS.find((x) => x.id === params['id']);
+    if (!c) return new HttpResponse(null, { status: 404 });
+    if (params['code'] === 'test') c.lastTestResult = { success: true, latencyMs: 91, message: 'Connexion OK' };
+    if (params['code'] === 'enable' || params['code'] === 'disable') {
+      c.enabled = params['code'] === 'enable';
+      c.availableActions = act(c.enabled);
+    }
+    return HttpResponse.json(c);
   }),
 ];
