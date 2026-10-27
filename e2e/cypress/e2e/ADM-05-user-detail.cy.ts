@@ -30,4 +30,24 @@ describe('ADM-05 — Utilisateur (fiche)', () => {
     cy.get('[data-cy=user-message]').should('contain', 'Fermer les sessions');
     cy.get('[data-cy=user-action-close-sessions]').should('not.exist');
   });
+
+  it('réinitialise la MFA après confirmation', () => {
+    cy.visit('/users/00000000-0000-0000-0000-0000000000f1', {
+      onBeforeLoad: (win) => cy.stub(win, 'confirm').as('confirm').returns(true),
+    });
+    cy.contains('mat-chip', 'MFA actif').should('exist');
+    cy.get('[data-cy=user-action-reset-mfa]').click();
+    cy.get('@confirm').should('have.been.calledWith', 'La MFA devra être reconfigurée à la prochaine connexion.');
+    cy.get('[data-cy=user-message]').should('contain', 'Réinitialiser la MFA');
+    cy.contains('mat-chip', 'MFA non configuré').should('exist');
+  });
+
+  it('ne réinitialise pas la MFA si la confirmation est refusée', () => {
+    cy.visit('/users/00000000-0000-0000-0000-0000000000f1', {
+      onBeforeLoad: (win) => cy.stub(win, 'confirm').returns(false),
+    });
+    cy.get('[data-cy=user-action-reset-mfa]').click();
+    cy.get('[data-cy=user-message]').should('not.exist');
+    cy.contains('mat-chip', 'MFA actif').should('exist');
+  });
 });
