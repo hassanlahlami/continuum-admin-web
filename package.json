@@ -12,6 +12,7 @@
     "serve:mock": "ng serve --port 4201",
     "serve:live": "ng serve --configuration live --port 4201",
     "e2e:run": "cypress run --project e2e",
+    "e2e:live": "cypress run --project e2e --config-file cypress.live.config.ts",
     "e2e:open": "cypress open --project e2e",
     "e2e": "start-server-and-test serve:mock http-get://localhost:4201 e2e:run"
   },
