@@ -14,6 +14,18 @@ const INVALID_USER = '00000000-0000-0000-0000-000000000422';
 const INSPECTION_UNIT = { id: 'b1111111-1111-1111-1111-111111111111', code: 'AG-A001', label: 'Agence A001' };
 const AUDIT_UNIT = { id: '3f6c2a1e-8b7d-4c21-9a55-0e2f4b6d8c10', code: 'DIR_AUDIT', label: 'Inspection Générale' };
 
+/** Actions proposées par le serveur selon l'état du compte (le front n'infère rien). */
+function withUserActions(u: UserAccount): UserAccount {
+  const a = (code: string, label: string, extra: object = {}) => ({ code, label, ...extra });
+  const actions = [
+    u.accountStatus === 'LOCKED' ? a('unlock', 'Déverrouiller') : u.accountStatus !== 'DISABLED' ? a('lock', 'Verrouiller', { requiresComment: true }) : null,
+    u.accountStatus !== 'DISABLED' ? a('reset-mfa', 'Réinitialiser la MFA', { confirmationMessage: 'La MFA devra être reconfigurée à la prochaine connexion.' }) : null,
+    u.accountStatus !== 'DISABLED' ? a('disable', 'Désactiver', { style: 'danger', requiresComment: true }) : null,
+    (u.activeSessions ?? 0) > 0 ? a('close-sessions', 'Fermer les sessions') : null,
+  ].filter((x): x is NonNullable<typeof x> => !!x);
+  return { ...u, version: u.version ?? 0, availableActions: actions as UserAccount['availableActions'] };
+}
+
 /** Annuaire de démonstration — un échantillon couvrant les statuts et sources de compte. */
 const USERS: UserAccount[] = [
   {
@@ -554,7 +566,31 @@ export const adminIamHandlers = [
   // Fiche (profil) d'un utilisateur.
   http.get('*/api/admin/users/:userId', ({ params }) => {
     const user = USERS.find((u) => u.id === String(params['userId'])) ?? USERS[0];
-    return HttpResponse.json(user);
+    return HttpResponse.json(withUserActions(user));
+  }),
+
+  // Actions de compte (verrouiller, déverrouiller, réinitialiser la MFA, désactiver, fermer les sessions) :
+  // motif exigé pour lock/disable (422), version obsolète → 409, action non proposée → 403.
+  http.post('*/api/admin/users/:userId/actions/:actionCode', async ({ params, request }) => {
+    const user = USERS.find((u) => u.id === String(params['userId']));
+    const body = (await request.json().catch(() => null)) as { version?: number; comment?: string } | null;
+    const code = String(params['actionCode']);
+    if (!user || !withUserActions(user).availableActions?.some((a) => a.code === code)) {
+      return HttpResponse.json({ title: 'Interdit', detail: 'Action non autorisée.' }, { status: 403, headers: { 'content-type': 'application/problem+json' } });
+    }
+    if ((body?.version ?? 0) !== (user.version ?? 0)) {
+      return HttpResponse.json({ title: 'Conflit', detail: 'Le compte a été modifié entre-temps.' }, { status: 409, headers: { 'content-type': 'application/problem+json' } });
+    }
+    if ((code === 'lock' || code === 'disable') && !body?.comment?.trim()) {
+      return HttpResponse.json({ title: 'Requête invalide', detail: 'Motif obligatoire.' }, { status: 422, headers: { 'content-type': 'application/problem+json' } });
+    }
+    if (code === 'lock') user.accountStatus = 'LOCKED';
+    if (code === 'unlock') user.accountStatus = 'ACTIVE';
+    if (code === 'disable') user.accountStatus = 'DISABLED';
+    if (code === 'reset-mfa') user.mfaConfigured = false;
+    if (code === 'close-sessions') user.activeSessions = 0;
+    user.version = (user.version ?? 0) + 1;
+    return HttpResponse.json(withUserActions(user));
   }),
 
   // Création d'un compte local. Identifiant « existant » → 409 (démo de l'unicité décidée par le serveur).
