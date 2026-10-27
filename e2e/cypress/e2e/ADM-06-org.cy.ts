@@ -58,6 +58,15 @@ describe('ADM-06 — Organigramme', () => {
     cy.get('[data-cy=org-closed-badge]').should('exist');
   });
 
+  it('renomme une unité en ligne', () => {
+    cy.visit('/org');
+    cy.get('[data-cy=org-row]').eq(2).find('[data-cy=org-edit]').click();
+    cy.get('[data-cy=org-edit-label]').clear().type('Direction risques & conformité');
+    cy.get('[data-cy=org-edit-save]').click();
+    cy.get('[data-cy=org-message]').should('contain', 'renommée');
+    cy.get('[data-cy=org-row]').eq(2).should('contain', 'conformité');
+  });
+
   it('gère les types d\'unités', () => {
     cy.visit('/org');
     cy.get('[data-cy=org-tab-types]').click();
