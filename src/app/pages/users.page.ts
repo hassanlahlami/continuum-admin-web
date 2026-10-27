@@ -9,7 +9,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
-import { UserAccount, UserPage, UsersService } from '../../../libs/api-clients/admin-iam';
+import { DirectorySyncStatus, OrgService, OrgUnitNode, Position, PositionsService, UserAccount, UserPage, UsersService } from '../../../libs/api-clients/admin-iam';
+import { DatePipe } from '@angular/common';
 import { ACCOUNT_STATUS_LABELS, USER_SOURCE_LABELS } from '../iam.labels';
 
 /**
@@ -30,6 +31,7 @@ import { ACCOUNT_STATUS_LABELS, USER_SOURCE_LABELS } from '../iam.labels';
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
+    DatePipe,
   ],
   template: `
     <section>
@@ -39,9 +41,28 @@ import { ACCOUNT_STATUS_LABELS, USER_SOURCE_LABELS } from '../iam.labels';
       </header>
       <p class="page-sub">Annuaire des comptes (annuaire d'entreprise et comptes locaux) et leur affectation.</p>
 
+      @if (sync(); as d) {
+        <mat-card appearance="outlined" class="sync-banner" data-cy="users-sync">
+          <mat-card-content>
+            <div>
+              <strong>Annuaire{{ d.provider ? ' (' + d.provider + ')' : '' }}</strong>
+              <span class="muted" data-cy="users-sync-last">
+                · dernière synchronisation {{ d.lastFullSyncAt ? (d.lastFullSyncAt | date: 'dd/MM/yyyy HH:mm') : 'jamais' }}
+                · {{ d.importedUsers ?? 0 }} importés · {{ d.failedUsers ?? 0 }} en erreur
+              </span>
+              @if (d.lastError) { <div class="sync-error" data-cy="users-sync-error">{{ d.lastError }}</div> }
+              @if (syncMsg()) { <div class="muted" data-cy="users-sync-msg">{{ syncMsg() }}</div> }
+            </div>
+            <button mat-stroked-button type="button" (click)="triggerSync()" [disabled]="syncing()" data-cy="users-sync-trigger">
+              <mat-icon>sync</mat-icon> Synchroniser
+            </button>
+          </mat-card-content>
+        </mat-card>
+      }
+
       <mat-card appearance="outlined">
         <mat-card-content>
-          <form class="filters" (submit)="$event.preventDefault(); apply(qF.value, statusF.value, sourceF.value)">
+          <form class="filters" (submit)="$event.preventDefault(); apply(qF.value, statusF.value, sourceF.value, unitF.value, positionF.value)">
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow">
               <mat-label>Rechercher</mat-label>
               <input matInput #qF type="search" [value]="filters().q" placeholder="nom, identifiant ou courriel" data-cy="users-search" />
@@ -60,6 +81,20 @@ import { ACCOUNT_STATUS_LABELS, USER_SOURCE_LABELS } from '../iam.labels';
                 <mat-option value="">Toutes</mat-option>
                 <mat-option value="AD">Annuaire (AD)</mat-option>
                 <mat-option value="LOCAL">Compte local</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="dense">
+              <mat-label>Unité</mat-label>
+              <mat-select #unitF [value]="filters().unitId" data-cy="users-unit">
+                <mat-option value="">Toutes</mat-option>
+                @for (u of units(); track u.id) { <mat-option [value]="u.id">{{ u.label }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="dense">
+              <mat-label>Position</mat-label>
+              <mat-select #positionF [value]="filters().positionId" data-cy="users-position">
+                <mat-option value="">Toutes</mat-option>
+                @for (p of positions(); track p.id) { <mat-option [value]="p.id">{{ p.label.fr }}</mat-option> }
               </mat-select>
             </mat-form-field>
             <div class="filter-actions">
@@ -95,9 +130,17 @@ import { ACCOUNT_STATUS_LABELS, USER_SOURCE_LABELS } from '../iam.labels';
                   <mat-chip-set><mat-chip disableRipple [attr.data-status]="u.accountStatus">{{ statusLabel(u.accountStatus) }}</mat-chip></mat-chip-set>
                 </td>
               </ng-container>
-              <ng-container matColumnDef="assignments">
-                <th mat-header-cell *matHeaderCellDef class="num">Affectations</th>
-                <td mat-cell *matCellDef="let u" class="num">{{ u.assignments?.length ?? 0 }}</td>
+              <ng-container matColumnDef="mfa">
+                <th mat-header-cell *matHeaderCellDef>MFA</th>
+                <td mat-cell *matCellDef="let u"><span data-cy="user-mfa">{{ u.mfaConfigured ? 'Oui' : 'Non' }}</span></td>
+              </ng-container>
+              <ng-container matColumnDef="positions">
+                <th mat-header-cell *matHeaderCellDef>Positions</th>
+                <td mat-cell *matCellDef="let u"><span class="muted">{{ positionsOf(u) }}</span></td>
+              </ng-container>
+              <ng-container matColumnDef="lastLogin">
+                <th mat-header-cell *matHeaderCellDef>Dernière connexion</th>
+                <td mat-cell *matCellDef="let u">{{ u.lastLoginAt ? (u.lastLoginAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="columns; sticky: true"></tr>
               <tr mat-row *matRowDef="let row; columns: columns" data-cy="user-row" class="clickable" (click)="open(row)"></tr>
@@ -119,6 +162,9 @@ import { ACCOUNT_STATUS_LABELS, USER_SOURCE_LABELS } from '../iam.labels';
       .filters .grow { flex: 1 1 260px; min-width: 220px; }
       .filters .dense { width: 190px; }
       .filter-actions { display: flex; gap: var(--ct-space-2); align-items: center; }
+      .sync-banner { margin-bottom: var(--ct-space-3); }
+      .sync-banner mat-card-content { display: flex; justify-content: space-between; align-items: center; gap: var(--ct-space-4); }
+      .sync-error { color: var(--ct-red-700); font-size: 0.85rem; }
       .table-card { margin-top: var(--ct-space-4); padding: 0; overflow: hidden; }
       table[mat-table] { width: 100%; background: transparent; }
       th.mat-mdc-header-cell { background: var(--ct-color-surface); }
@@ -141,16 +187,28 @@ export class UsersPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly page = signal<UserPage | null>(null);
-  readonly filters = signal<{ q: string; status: string; source: string }>({ q: '', status: '', source: '' });
+  private readonly org = inject(OrgService);
+  private readonly positionsApi = inject(PositionsService);
+  readonly sync = signal<DirectorySyncStatus | null>(null);
+  readonly syncing = signal(false);
+  readonly syncMsg = signal('');
+  readonly units = signal<{ id: string; label: string }[]>([]);
+  readonly positions = signal<Position[]>([]);
+  readonly filters = signal<{ q: string; status: string; source: string; unitId: string; positionId: string }>({ q: '', status: '', source: '', unitId: '', positionId: '' });
   readonly statuses = Object.values(UserAccount.AccountStatusEnum);
-  readonly columns = ['user', 'email', 'source', 'status', 'assignments'];
+  readonly columns = ['user', 'email', 'source', 'status', 'mfa', 'positions', 'lastLogin'];
 
   ngOnInit(): void {
+    this.service.getDirectorySyncStatus().subscribe((d) => this.sync.set(d));
+    this.positionsApi.listPositions().subscribe((p) => this.positions.set(p));
+    this.org.getOrgTree().subscribe((tree) => this.units.set(flatten(tree)));
     this.route.queryParamMap.subscribe((params) => {
       const q = params.get('q') ?? '';
       const status = params.get('status') ?? '';
       const source = params.get('source') ?? '';
-      this.filters.set({ q, status, source });
+      const unitId = params.get('unitId') ?? '';
+      const positionId = params.get('positionId') ?? '';
+      this.filters.set({ q, status, source, unitId, positionId });
       this.page.set(null);
       this.service
         .listUsers(
@@ -158,9 +216,10 @@ export class UsersPage implements OnInit {
           20,
           undefined,
           q || undefined,
-          undefined,
+          unitId || undefined,
           (source || undefined) as UserAccount.SourceEnum | undefined,
           (status || undefined) as UserAccount.AccountStatusEnum | undefined,
+          positionId || undefined,
         )
         .subscribe((p) => this.page.set(p));
     });
@@ -170,14 +229,34 @@ export class UsersPage implements OnInit {
     this.router.navigate(['/users', u.id]);
   }
 
+  triggerSync(): void {
+    this.syncing.set(true);
+    this.syncMsg.set('');
+    this.service.triggerDirectorySync().subscribe({
+      next: () => {
+        this.syncing.set(false);
+        this.syncMsg.set('Synchronisation demandée.');
+      },
+      error: () => {
+        this.syncing.set(false);
+        this.syncMsg.set('La synchronisation n’a pas pu être lancée.');
+      },
+    });
+  }
+
+  positionsOf(u: UserAccount): string {
+    const labels = (u.assignments ?? []).map((a) => a.positionLabel).filter((l): l is string => !!l);
+    return labels.length ? labels.join(', ') : '—';
+  }
+
   create(): void {
     this.router.navigate(['/users/new']);
   }
 
-  apply(q: string, status: string, source: string): void {
+  apply(q: string, status: string, source: string, unitId: string, positionId: string): void {
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { q: q || null, status: status || null, source: source || null },
+      queryParams: { q: q || null, status: status || null, source: source || null, unitId: unitId || null, positionId: positionId || null },
       queryParamsHandling: 'merge',
     });
   }
@@ -193,4 +272,8 @@ export class UsersPage implements OnInit {
   sourceLabel(s: UserAccount.SourceEnum): string {
     return USER_SOURCE_LABELS[s] ?? s;
   }
+}
+
+function flatten(nodes: OrgUnitNode[], depth = 0): { id: string; label: string }[] {
+  return nodes.flatMap((n) => [{ id: n.id, label: '  '.repeat(depth) + n.label }, ...flatten(n.children ?? [], depth + 1)]);
 }
