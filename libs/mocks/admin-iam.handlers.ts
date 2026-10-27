@@ -522,8 +522,12 @@ export const adminIamHandlers = [
     const q = url.searchParams.get('q')?.toLowerCase();
     const status = url.searchParams.get('accountStatus');
     const source = url.searchParams.get('source');
+    const positionId = url.searchParams.get('positionId');
+    const unitId = url.searchParams.get('unitId');
     const items = USERS.filter(
       (u) =>
+        (!positionId || u.assignments?.some((a) => a.positionId === positionId)) &&
+        (!unitId || u.assignments?.some((a) => a.unitId === unitId || a.unit?.id === unitId)) &&
         (!q || `${u.displayName} ${u.username} ${u.email ?? ''}`.toLowerCase().includes(q)) &&
         (!status || u.accountStatus === status) &&
         (!source || u.source === source),
@@ -531,6 +535,21 @@ export const adminIamHandlers = [
     const page: UserPage = { page: 0, size: 20, totalItems: items.length, totalPages: 1, items };
     return HttpResponse.json(page);
   }),
+
+  // Bandeau annuaire : dernier état de synchronisation + déclenchement (asynchrone, 202).
+  http.get('*/api/admin/directory/sync', () =>
+    HttpResponse.json({
+      provider: 'ldap',
+      lastFullSyncAt: '2026-02-03T06:00:00Z',
+      lastChangedSyncAt: '2026-02-03T08:00:00Z',
+      importedUsers: 412,
+      failedUsers: 2,
+      lastError: 'CN=svc-legacy: attribut mail manquant',
+    }),
+  ),
+  http.post('*/api/admin/directory/sync', () =>
+    HttpResponse.json({ id: 'b0000000-0000-0000-0000-000000000001', type: 'directory-sync', status: 'QUEUED' }, { status: 202 }),
+  ),
 
   // Fiche (profil) d'un utilisateur.
   http.get('*/api/admin/users/:userId', ({ params }) => {
