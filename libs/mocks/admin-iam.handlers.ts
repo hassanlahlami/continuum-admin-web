@@ -266,6 +266,9 @@ const ENTITIES: Entity[] = [
   { id: 'e2000000-0000-0000-0000-000000000002', code: 'BANQUE-DEMO-FILIALE-01', label: 'Banque Démo — Filiale Leasing', status: 'SUSPENDED', keycloakRealm: 'banque-demo-filiale-01', dataIsolation: 'PDB', packCode: 'PACK-BANQUE', enabledModules: ['AUDIT'], locales: ['fr'], defaultLocale: 'fr', usersCount: 7 },
 ];
 const entityMode = () => globalThis.localStorage?.getItem('ct-mock-entities');
+/** Actions permises décidées par le « serveur » ; surcharge `ct-mock-entities=noactions` : aucune action proposée. */
+const ENTITY_ACTIONS: Record<string, string[]> = { ACTIVE: ['suspend', 'maintenance'], SUSPENDED: ['reactivate'], MAINTENANCE: ['reactivate'] };
+const withActions = (e: Entity): Entity => ({ ...e, availableActions: entityMode() === 'noactions' ? [] : (ENTITY_ACTIONS[e.status ?? ''] ?? []).map((code) => ({ code })) } as Entity);
 
 export const adminIamHandlers = [
   // Entités (ADM-02) : lecture et création (Job 202 : schéma/PDB, realm, pack ; le serveur valide, 422 si code vide ou en double).
@@ -285,7 +288,7 @@ export const adminIamHandlers = [
   http.get('*/api/admin/entities/:id', ({ params }) => {
     if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
     const e = ENTITIES.find((x) => x.id === params['id']);
-    return e ? HttpResponse.json(e) : new HttpResponse(null, { status: 404 });
+    return e ? HttpResponse.json(withActions(e)) : new HttpResponse(null, { status: 404 });
   }),
   http.put('*/api/admin/entities/:id', async ({ request, params }) => {
     if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
@@ -295,7 +298,7 @@ export const adminIamHandlers = [
     if (!e) return new HttpResponse(null, { status: 404 });
     if (!body.label?.trim() || (body.locales?.length && body.defaultLocale && !body.locales.includes(body.defaultLocale as never))) return HttpResponse.json({ title: 'Invalid entity' }, { status: 422 });
     Object.assign(e, { label: body.label, enabledModules: body.enabledModules, locales: body.locales, defaultLocale: body.defaultLocale, version: (e.version ?? 0) + 1 });
-    return HttpResponse.json(e);
+    return HttpResponse.json(withActions(e));
   }),
   http.post('*/api/admin/entities/:id/actions/:code', async ({ params }) => {
     if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
@@ -307,7 +310,7 @@ export const adminIamHandlers = [
     if (!st) return new HttpResponse(null, { status: 422 });
     e.status = st;
     e.version = (e.version ?? 0) + 1;
-    return HttpResponse.json(e);
+    return HttpResponse.json(withActions(e));
   }),
   // Demandes en attente de validation (ADM-14) ; surcharge localStorage `ct-mock-change-requests` : forbidden, error, conflict.
   http.get('*/api/admin/change-requests', ({ request }) => {

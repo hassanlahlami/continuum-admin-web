@@ -36,10 +36,13 @@ import { Entity, EntityInput, EntitiesService } from '../../../libs/api-clients/
               <dt>Utilisateurs</dt><dd>{{ e.usersCount ?? '—' }}</dd>
             </dl>
             <div class="actions" data-cy="ed-state-actions">
-              @if (e.status === 'ACTIVE') {
+              @if (can('suspend')) {
                 <button mat-stroked-button type="button" data-cy="ed-suspend" (click)="act('suspend')">Suspendre</button>
+              }
+              @if (can('maintenance')) {
                 <button mat-stroked-button type="button" data-cy="ed-maintenance" (click)="act('maintenance')">Mettre en maintenance</button>
-              } @else if (e.status === 'SUSPENDED' || e.status === 'MAINTENANCE') {
+              }
+              @if (can('reactivate')) {
                 <button mat-stroked-button type="button" data-cy="ed-reactivate" (click)="act('reactivate')">Réactiver</button>
               }
             </div>
@@ -156,6 +159,11 @@ export class EntityDetailPage implements OnInit {
       next: (r) => { this.apply(r); this.message.set('Entité enregistrée.'); },
       error: (err: HttpErrorResponse) => this.error.set(err.status),
     });
+  }
+
+  /** Action permise telle que décidée par le serveur (`availableActions`) : le front n'infère rien du statut. */
+  can(code: string): boolean {
+    return !!this.entity()?.availableActions?.some((a) => a.code === code);
   }
 
   act(code: 'suspend' | 'reactivate' | 'maintenance'): void {

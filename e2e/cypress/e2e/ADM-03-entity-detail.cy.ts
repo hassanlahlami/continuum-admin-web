@@ -37,6 +37,13 @@ describe('ADM-03 — Entité : fiche', () => {
     cy.get('[data-cy=ed-mod-AI]').should('be.checked');
   });
 
+  it('masque les actions que le serveur ne propose pas', () => {
+    cy.visit('/entities/' + ID, withMode('noactions'));
+    cy.get('[data-cy=ed-status]').should('contain', 'Active');
+    cy.get('[data-cy=ed-suspend]').should('not.exist');
+    cy.get('[data-cy=ed-maintenance]').should('not.exist');
+  });
+
   it('suspend puis réactive', () => {
     cy.visit('/entities/' + ID);
     cy.get('[data-cy=ed-suspend]').click();
