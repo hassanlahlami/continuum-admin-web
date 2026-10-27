@@ -96,12 +96,21 @@ type Pending = { kind: 'move' | 'close'; node: OrgUnitNode };
                 <tbody>
                   @for (r of rows(); track r.node.id) {
                     <tr data-cy="org-row" [class.closed]="r.node.closed">
-                      <td [style.padding-inline-start.rem]="1 + r.depth * 1.5">{{ r.node.label }} @if (r.node.closed) { <em data-cy="org-closed-badge">(fermée)</em> }</td>
+                      <td [style.padding-inline-start.rem]="1 + r.depth * 1.5">
+                        @if (editing()?.id === r.node.id) {
+                          <input data-cy="org-edit-label" aria-label="Libellé" [(ngModel)]="editLabel" />
+                          <button mat-button type="button" data-cy="org-edit-save" [disabled]="!editLabel.trim()" (click)="saveEdit(r.node)">Enregistrer</button>
+                          <button mat-button type="button" data-cy="org-edit-cancel" (click)="editing.set(null)">Annuler</button>
+                        } @else {
+                          {{ r.node.label }} @if (r.node.closed) { <em data-cy="org-closed-badge">(fermée)</em> }
+                        }
+                      </td>
                       <td>{{ r.node.code }}</td>
                       <td>{{ r.node.typeLabel }}</td>
                       <td>{{ r.node.assignmentsCount ?? 0 }}</td>
                       <td>
                         @if (!r.node.closed) {
+                          <button mat-button type="button" data-cy="org-edit" (click)="startEdit(r.node)">Renommer</button>
                           <button mat-button type="button" data-cy="org-move" (click)="ask('move', r.node)">Déplacer</button>
                           <button mat-button type="button" data-cy="org-close" (click)="ask('close', r.node)">Fermer</button>
                         }
@@ -174,6 +183,8 @@ export class OrgPage implements OnInit {
   readonly includeClosed = signal(false);
   readonly search = signal('');
   readonly pending = signal<Pending | null>(null);
+  readonly editing = signal<OrgUnitNode | null>(null);
+  editLabel = '';
   readonly message = signal<string | null>(null);
   readonly error = signal<number | null>(null);
   newCode = '';
@@ -222,10 +233,23 @@ export class OrgPage implements OnInit {
     const p = this.pending();
     if (!p) return;
     this.reset();
-    const body = p.kind === 'move' ? { version: 0, payload: { parentId: this.targetId } } : { version: 0 };
+    const body = p.kind === 'move' ? { version: p.node.version ?? 0, payload: { parentId: this.targetId } } : { version: p.node.version ?? 0 };
     this.api.performOrgUnitAction(p.node.id, p.kind, body).subscribe({
       next: () => { this.pending.set(null); this.message.set(p.kind === 'move' ? 'Unité déplacée.' : 'Unité fermée.'); this.loadTree(); },
       error: (e: HttpErrorResponse) => { this.pending.set(null); this.error.set(e.status); },
+    });
+  }
+
+  startEdit(n: OrgUnitNode): void {
+    this.editLabel = n.label;
+    this.editing.set(n);
+  }
+
+  saveEdit(n: OrgUnitNode): void {
+    this.reset();
+    this.api.updateOrgUnit(n.id, { code: n.code, label: { fr: this.editLabel.trim() }, unitTypeId: n.unitTypeId ?? '' }).subscribe({
+      next: () => { this.editing.set(null); this.message.set('Unité renommée.'); this.loadTree(); },
+      error: (e: HttpErrorResponse) => { this.editing.set(null); this.error.set(e.status); },
     });
   }
 
