@@ -7,6 +7,6 @@ export const environment = {
   useMocks: true,
   /** Émetteur OIDC (realm Keycloak), §4.5. :8180 = Keycloak de la simulation. */
   oidcIssuer: 'http://localhost:8180/realms/banque-demo',
-  /** Préfixe de l'API d'administration, §4.3.3 (proxy de dev → backend :8080). */
+  /** Préfixe de l'API d'administration, §4.3.3 (proxy de dev → backend :8082). */
   apiBaseUrl: '/api/admin',
 };
