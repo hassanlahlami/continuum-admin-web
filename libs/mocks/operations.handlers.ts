@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import type {
-  AuditEventPage, ComponentHealth, ScheduledJob, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
+  AlertRule, ErrorGroup, AuditEventPage, ComponentHealth, ScheduledJob, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
   LogLevelOverride, LogQuery, LogResultPage, SaveLogQueryRequest,
 } from '../api-clients/operations';
 
@@ -265,5 +265,55 @@ export const healthHandlers = [
     const mode = healthMode();
     if (mode === 'forbidden') return new HttpResponse(null, { status: 403 });
     return HttpResponse.json(mode === 'empty' ? [] : SCHEDULED_JOBS);
+  }),
+];
+
+/** Clé localStorage de surcharge e2e d'OPS-10 : `forbidden` (403 sur erreurs et règles), `error` (500), `empty` (aucune erreur). */
+const ERRORS_KEY = 'ct-mock-errors';
+const errorsMode = () => (typeof localStorage === 'undefined' ? null : localStorage.getItem(ERRORS_KEY));
+
+const ERROR_GROUPS: ErrorGroup[] = [
+  {
+    eventCode: 'CTN-INT-0102', label: 'Appel ERP en échec après les tentatives', level: 'ERROR', occurrences: 42,
+    firstSeenAt: '2026-02-03T06:10:00Z', lastSeenAt: '2026-02-03T09:05:00Z', nodes: ['app-1', 'app-2'],
+    trend: [{ at: '2026-02-03T08:00:00Z', count: 10 }, { at: '2026-02-03T09:00:00Z', count: 32 }],
+    runbook: '1. Vérifier l’état du connecteur (OPS-CONN-01).\n2. Tester la connexion.\n3. Escalader au prestataire si l’indisponibilité dépasse 30 min.',
+  },
+  {
+    eventCode: 'CTN-WFL-0007', label: 'Tâche de workflow expirée', level: 'WARN', occurrences: 5,
+    firstSeenAt: '2026-02-02T10:00:00Z', lastSeenAt: '2026-02-03T07:00:00Z', nodes: ['app-1'],
+    trend: [{ at: '2026-02-03T08:00:00Z', count: 3 }, { at: '2026-02-03T09:00:00Z', count: 2 }],
+    runbook: 'Relancer la tâche depuis la console de workflow.',
+  },
+];
+
+let ALERT_RULES: AlertRule[] = [
+  { id: '00000000-0000-0000-0000-0000000000c1', label: 'CBS indisponible', eventCode: 'CTN-INT-0102', threshold: 5, window: 'PT10M', channels: ['IN_APP', 'EMAIL'], enabled: true },
+];
+
+export const alertsHandlers = [
+  http.get('*/api/admin/errors', () => {
+    const mode = errorsMode();
+    if (mode === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (mode === 'error') return new HttpResponse(null, { status: 500 });
+    return HttpResponse.json(mode === 'empty' ? [] : ERROR_GROUPS);
+  }),
+  http.get('*/api/admin/alert-rules', () => {
+    if (errorsMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    return HttpResponse.json(ALERT_RULES);
+  }),
+  http.post('*/api/admin/alert-rules', async ({ request }) => {
+    const rule: AlertRule = { ...((await request.json()) as AlertRule), id: crypto.randomUUID() };
+    ALERT_RULES = [...ALERT_RULES, rule];
+    return HttpResponse.json(rule, { status: 201 });
+  }),
+  http.put('*/api/admin/alert-rules/:id', async ({ params, request }) => {
+    const rule: AlertRule = { ...((await request.json()) as AlertRule), id: params['id'] as string };
+    ALERT_RULES = ALERT_RULES.map((r) => (r.id === rule.id ? rule : r));
+    return HttpResponse.json(rule);
+  }),
+  http.delete('*/api/admin/alert-rules/:id', ({ params }) => {
+    ALERT_RULES = ALERT_RULES.filter((r) => r.id !== params['id']);
+    return new HttpResponse(null, { status: 204 });
   }),
 ];
