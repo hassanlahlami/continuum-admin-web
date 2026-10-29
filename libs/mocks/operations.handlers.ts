@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import type {
   AlertRule, ErrorGroup, AuditEventPage, ComponentHealth, ScheduledJob, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
-  LogLevelOverride, LogQuery, LogResultPage, SaveLogQueryRequest,
+  LogLevelOverride, LogQuery, LogResultPage, SaveLogQueryRequest, Trace,
 } from '../api-clients/operations';
 
 /**
@@ -129,6 +129,36 @@ let LOG_LEVELS: LogLevelOverride[] = [
 const durationMs = (iso: string): number | undefined => {
   const m = /^PT(?:(\d+)H)?(?:(\d+)M)?$/.exec(iso);
   return m && (m[1] || m[2]) ? ((Number(m[1] ?? 0) * 60) + Number(m[2] ?? 0)) * 60_000 : undefined;
+};
+
+const TRACE_ERR_ID = '4bf92f3577b34da6a3ce929d0e0e4736';
+const TRACE_OK_ID = '0af7651916cd43dd8448eb211c80319c';
+/** Trace en erreur : un appel connecteur échoue (CTN-INT-0102) ; trace saine pour le cas nominal. */
+const TRACE_ERR: Trace = {
+  traceId: TRACE_ERR_ID,
+  startedAt: '2026-02-03T09:12:04Z',
+  durationMs: 8420,
+  outcome: 'ERROR',
+  spans: [
+    { spanId: 's1', service: 'continuum-app-web', name: 'POST /api/app/missions/{id}/findings', startOffsetMs: 0, durationMs: 8420, status: 'ERROR' },
+    { spanId: 's2', parentSpanId: 's1', service: 'keycloak', name: 'validate token', startOffsetMs: 4, durationMs: 18, status: 'OK' },
+    { spanId: 's3', parentSpanId: 's1', service: 'continuum-backend', name: 'FindingService.create', startOffsetMs: 30, durationMs: 8380, status: 'ERROR' },
+    { spanId: 's4', parentSpanId: 's3', service: 'continuum-connector', name: 'ERP-LEGACY pullAccounts', startOffsetMs: 60, durationMs: 8000, status: 'ERROR', eventCode: 'CTN-INT-0102' },
+  ],
+  logs: [
+    { '@timestamp': '2026-02-03T09:12:12Z', 'log.level': 'ERROR', 'log.logger': 'continuum.integration', message: 'Connecteur ERP-LEGACY indisponible (timeout 8000 ms)', 'event.code': 'CTN-INT-0102' },
+  ],
+};
+const TRACE_OK: Trace = {
+  traceId: TRACE_OK_ID,
+  startedAt: '2026-02-03T09:15:00Z',
+  durationMs: 120,
+  outcome: 'SUCCESS',
+  spans: [
+    { spanId: 'o1', service: 'continuum-app-web', name: 'GET /api/app/missions', startOffsetMs: 0, durationMs: 120, status: 'OK' },
+    { spanId: 'o2', parentSpanId: 'o1', service: 'continuum-backend', name: 'MissionService.list', startOffsetMs: 10, durationMs: 100, status: 'OK' },
+  ],
+  logs: [],
 };
 
 export const operationsHandlers = [
@@ -322,5 +352,11 @@ export const alertsHandlers = [
   http.delete('*/api/admin/alert-rules/:id', ({ params }) => {
     ALERT_RULES = ALERT_RULES.filter((r) => r.id !== params['id']);
     return new HttpResponse(null, { status: 204 });
+  }),
+  http.get('*/api/admin/traces/:traceId', ({ params }) => {
+    const traceId = params['traceId'] as string;
+    if (traceId === TRACE_OK_ID) return HttpResponse.json(TRACE_OK);
+    if (traceId === TRACE_ERR_ID) return HttpResponse.json(TRACE_ERR);
+    return new HttpResponse(null, { status: 404 });
   }),
 ];

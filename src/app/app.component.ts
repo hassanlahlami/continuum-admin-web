@@ -7,7 +7,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { map } from 'rxjs/operators';
 
@@ -165,6 +165,10 @@ import { map } from 'rxjs/operators';
           </button>
           <span class="app-bar-title">Administration Système</span>
           <span class="spacer"></span>
+          <form class="trace-lookup" (submit)="openTrace($event, traceInput.value); traceInput.value = ''">
+            <input #traceInput name="trace" placeholder="Référence de trace" aria-label="Référence de trace"
+                   data-cy="trace-lookup" autocomplete="off" />
+          </form>
           <button mat-icon-button (click)="cycleTheme()" data-cy="theme-toggle"
                   [attr.aria-label]="'Thème : ' + theme()">
             <mat-icon>{{ themeIcon() }}</mat-icon>
@@ -204,6 +208,11 @@ import { map } from 'rxjs/operators';
       }
       .app-bar-title { font-family: var(--ct-font-heading); font-weight: 600; font-size: 1rem; }
       .spacer { flex: 1 1 auto; }
+      .trace-lookup input {
+        font-family: var(--ct-font-mono); font-size: .82rem; width: 16rem; padding: var(--ct-space-1) var(--ct-space-2);
+        border: 1px solid var(--ct-color-border); border-radius: var(--ct-radius-sm);
+        background: var(--ct-color-surface); color: var(--ct-color-text);
+      }
       .user { display: flex; flex-direction: column; line-height: 1.15; text-align: right; }
       .user strong { font-size: .9rem; } .user span { font-size: .78rem; color: var(--ct-color-muted); }
       /* Le contenu occupe toute la largeur restante à droite de la barre latérale. */
@@ -213,6 +222,7 @@ import { map } from 'rxjs/operators';
 })
 export class AppComponent {
   private readonly oauth = inject(OAuthService);
+  private readonly router = inject(Router);
   readonly theme = signal<'auto' | 'light' | 'dark'>(this.readTheme());
   /** Barre latérale repliée en rail d'icônes (bureau) ; persistée par navigateur. */
   readonly collapsed = signal<boolean>(this.readCollapsed());
@@ -226,6 +236,13 @@ export class AppComponent {
   constructor() {
     inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');
     this.applyTheme();
+  }
+
+  /** Saisie directe d'une référence de trace depuis l'en-tête (OPS-09). */
+  openTrace(event: Event, value: string): void {
+    event.preventDefault();
+    const id = value.trim();
+    if (id) void this.router.navigate(['/traces', id]);
   }
 
   displayName(): string | null {

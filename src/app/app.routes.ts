@@ -16,6 +16,7 @@ import { PositionEditorPage } from './pages/position-editor.page';
 import { PositionsPage } from './pages/positions.page';
 import { RolesPage } from './pages/roles.page';
 import { SodRulesPage } from './pages/sod-rules.page';
+import { TracePage } from './pages/trace.page';
 import { UserCreatePage } from './pages/user-create.page';
 import { UserDetailPage } from './pages/user-detail.page';
 import { UsersPage } from './pages/users.page';
@@ -41,6 +42,7 @@ export const routes: Routes = [
   { path: 'health', component: HealthPage },
   { path: 'errors', component: ErrorsPage },
   { path: 'logs', component: LogsPage },
+  { path: 'traces/:traceId', component: TracePage },
   { path: 'authz-simulator', component: AuthzSimulatorPage },
   { path: '**', redirectTo: '' },
 ];
