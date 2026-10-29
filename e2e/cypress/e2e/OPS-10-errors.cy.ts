@@ -34,6 +34,16 @@ describe('OPS-10 — Erreurs et alertes', () => {
     cy.get('[data-cy=logs-event-codes]').should('have.value', 'CTN-INT-0102');
   });
 
+  it('pilote les boutons depuis availableActions (activer/désactiver)', () => {
+    cy.visit('/errors');
+    rulesTab();
+    cy.get('[data-cy=rule-edit]').should('have.length', 1);
+    cy.get('[data-cy=rule-delete]').should('have.length', 1);
+    cy.get('[data-cy=rule-disable]').click();
+    cy.get('[data-cy=rule-enabled]').first().should('have.text', 'Non');
+    cy.get('[data-cy=rule-enable]').should('exist');
+  });
+
   it('crée, modifie et supprime une règle d’alerte', () => {
     cy.visit('/errors');
     rulesTab();

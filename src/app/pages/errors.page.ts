@@ -154,8 +154,9 @@ const PERIODS: { value: string; label: string; ms: number }[] = [
                   <ng-container matColumnDef="actions">
                     <th mat-header-cell *matHeaderCellDef>Actions</th>
                     <td mat-cell *matCellDef="let r">
-                      <button mat-stroked-button type="button" data-cy="rule-edit" (click)="edit(r)">Modifier</button>
-                      <button mat-stroked-button type="button" data-cy="rule-delete" (click)="remove(r)">Supprimer</button>
+                      @for (a of r.availableActions; track a.code) {
+                        <button mat-stroked-button type="button" [attr.data-cy]="'rule-' + a.code" (click)="act(r, a.code)">{{ a.label }}</button>
+                      }
                     </td>
                   </ng-container>
                   <tr mat-header-row *matHeaderRowDef="ruleCols; sticky: true"></tr>
@@ -343,6 +344,21 @@ export class ErrorsPage implements OnInit {
         this.loadRules();
       },
       error: (e: HttpErrorResponse) => this.fail(e, 'Enregistrement impossible.'),
+    });
+  }
+
+  act(r: AlertRule, code: string): void {
+    if (code === 'edit') this.edit(r);
+    else if (code === 'delete') this.remove(r);
+    else if (code === 'enable' || code === 'disable') this.toggle(r, code === 'enable');
+  }
+
+  private toggle(r: AlertRule, enabled: boolean): void {
+    if (!r.id) return;
+    this.result.set('');
+    this.service.updateAlertRule(r.id, { ...r, enabled }).subscribe({
+      next: () => this.loadRules(),
+      error: (e: HttpErrorResponse) => this.fail(e, 'Modification impossible.'),
     });
   }
 
