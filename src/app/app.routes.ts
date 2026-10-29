@@ -10,6 +10,7 @@ import { LogsPage } from './pages/logs.page';
 import { OrgPage } from './pages/org.page';
 import { OverviewPage } from './pages/overview.page';
 import { PendingChangesPage } from './pages/pending-changes.page';
+import { HealthPage } from './pages/health.page';
 import { PositionEditorPage } from './pages/position-editor.page';
 import { PositionsPage } from './pages/positions.page';
 import { RolesPage } from './pages/roles.page';
@@ -36,6 +37,7 @@ export const routes: Routes = [
   { path: 'audit-trail', component: AuditTrailPage },
   { path: 'connectors', component: ConnectorsPage },
   { path: 'caches', component: CachesPage },
+  { path: 'health', component: HealthPage },
   { path: 'logs', component: LogsPage },
   { path: 'authz-simulator', component: AuthzSimulatorPage },
   { path: '**', redirectTo: '' },

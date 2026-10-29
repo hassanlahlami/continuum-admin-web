@@ -126,6 +126,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">memory</mat-icon>
             <span matListItemTitle>Caches</span>
           </a>
+          <a mat-list-item routerLink="/health" routerLinkActive="active-nav"
+             data-cy="nav-health"
+             [matTooltip]="collapsed() && !isHandset() ? 'Supervision' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">monitor_heart</mat-icon>
+            <span matListItemTitle>Supervision</span>
+          </a>
           <a mat-list-item routerLink="/logs" routerLinkActive="active-nav"
              data-cy="nav-logs"
              [matTooltip]="collapsed() && !isHandset() ? 'Logs' : ''" matTooltipPosition="right"
