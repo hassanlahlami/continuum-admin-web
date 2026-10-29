@@ -349,7 +349,7 @@ tbody tr:hover { background: var(--ct-color-primary-soft); }
     --ct-color-primary-hover: #6fb0ff;
     --ct-color-primary-contrast: #0b1118;
     --ct-color-primary-soft: #16304a;
-    --ct-green-600: #56d08a; --ct-red-700: #ff8f85;
+    --ct-green-600: #56d08a; --ct-red-700: #ff8f85; --ct-amber-700: #f2c15c;
   }
 }
 :root[data-theme='dark'] {
@@ -364,5 +364,5 @@ tbody tr:hover { background: var(--ct-color-primary-soft); }
   --ct-color-primary-hover: #6fb0ff;
   --ct-color-primary-contrast: #0b1118;
   --ct-color-primary-soft: #16304a;
-  --ct-green-600: #56d08a; --ct-red-700: #ff8f85;
+  --ct-green-600: #56d08a; --ct-red-700: #ff8f85; --ct-amber-700: #f2c15c;
 }

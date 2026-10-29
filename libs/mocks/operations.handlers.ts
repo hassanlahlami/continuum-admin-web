@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import type {
-  AuditEventPage, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
+  AuditEventPage, ComponentHealth, ScheduledJob, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
   LogLevelOverride, LogQuery, LogResultPage, SaveLogQueryRequest,
 } from '../api-clients/operations';
 
@@ -228,5 +228,42 @@ export const operationsHandlers = [
       c.availableActions = act(c.enabled);
     }
     return HttpResponse.json(c);
+  }),
+];
+
+/** Clé localStorage de surcharge e2e de la supervision (OPS-11) : `forbidden` (403), `error` (500), `empty` (aucun composant), `slow` (réponse différée). */
+const HEALTH_KEY = 'ct-mock-health';
+const healthMode = () => (typeof localStorage === 'undefined' ? null : localStorage.getItem(HEALTH_KEY));
+
+const HEALTH: ComponentHealth[] = [
+  {
+    component: 'database', node: 'pg-primary', status: 'UP', checkedAt: '2026-02-03T09:00:00Z',
+    schemaVersions: [
+      { entityCode: 'BANQUE-DEMO', schemaName: 'entity_banque_demo', appliedVersion: '202609181200', expectedVersion: '202609181200', pendingMigrations: 0 },
+      { entityCode: 'ASSUR-DEMO', schemaName: 'entity_assur_demo', appliedVersion: '202609011000', expectedVersion: '202609181200', pendingMigrations: 2 },
+    ],
+  },
+  { component: 'broker', node: 'broker-1', status: 'UP', checkedAt: '2026-02-03T09:00:00Z' },
+  { component: 'keycloak', node: 'kc-1', status: 'DEGRADED', detail: 'Latence élevée sur le endpoint de jetons', checkedAt: '2026-02-03T09:00:00Z' },
+  { component: 'opensearch', node: 'os-1', status: 'DOWN', detail: 'Connexion refusée', checkedAt: '2026-02-03T08:59:30Z' },
+];
+
+const SCHEDULED_JOBS: ScheduledJob[] = [
+  { code: 'ccm-nightly', label: 'Exécution nocturne des contrôles CCM', state: 'ACTIVE', cron: '0 0 2 * * *', lastRunAt: '2026-02-03T02:00:00Z', lastOutcome: 'SUCCESS', nextRunAt: '2026-02-04T02:00:00Z' },
+  { code: 'purge-retention', label: 'Purge de rétention', state: 'FAILED', cron: '0 30 3 * * *', lastRunAt: '2026-02-03T03:30:00Z', lastOutcome: 'FAILURE', nextRunAt: '2026-02-04T03:30:00Z' },
+];
+
+export const healthHandlers = [
+  http.get('*/api/admin/health', async () => {
+    const mode = healthMode();
+    if (mode === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (mode === 'error') return new HttpResponse(null, { status: 500 });
+    if (mode === 'slow') await new Promise((r) => setTimeout(r, 1200));
+    return HttpResponse.json(mode === 'empty' ? [] : HEALTH);
+  }),
+  http.get('*/api/admin/scheduled-jobs', () => {
+    const mode = healthMode();
+    if (mode === 'forbidden') return new HttpResponse(null, { status: 403 });
+    return HttpResponse.json(mode === 'empty' ? [] : SCHEDULED_JOBS);
   }),
 ];
