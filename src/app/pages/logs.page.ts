@@ -2,6 +2,7 @@ import { DatePipe, JsonPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -274,6 +275,7 @@ type LogLine = Record<string, unknown>;
 })
 export class LogsPage implements OnInit {
   private readonly service = inject(LogsService);
+  private readonly route = inject(ActivatedRoute);
   readonly periods = PERIODS;
   readonly durations = DURATIONS;
   readonly levelOptions = LEVELS;
@@ -307,6 +309,8 @@ export class LogsPage implements OnInit {
   readonly result = signal('');
 
   ngOnInit(): void {
+    const code = this.route.snapshot.queryParamMap.get('code');
+    if (code) this.eventCodes.set(code);
     this.loadSaved();
     this.loadOverrides();
     this.search();

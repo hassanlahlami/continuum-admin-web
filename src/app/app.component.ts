@@ -140,6 +140,13 @@ import { map } from 'rxjs/operators';
             <mat-icon matListItemIcon aria-hidden="true">article</mat-icon>
             <span matListItemTitle>Logs</span>
           </a>
+          <a mat-list-item routerLink="/errors" routerLinkActive="active-nav"
+             data-cy="nav-errors"
+             [matTooltip]="collapsed() && !isHandset() ? 'Erreurs' : ''" matTooltipPosition="right"
+             (click)="isHandset() && drawer.close()">
+            <mat-icon matListItemIcon aria-hidden="true">error_outline</mat-icon>
+            <span matListItemTitle>Erreurs</span>
+          </a>
           <a mat-list-item routerLink="/authz-simulator" routerLinkActive="active-nav"
              data-cy="nav-authz-simulator"
              [matTooltip]="collapsed() && !isHandset() ? 'Simulateur' : ''" matTooltipPosition="right"
