@@ -287,6 +287,13 @@ const ERROR_GROUPS: ErrorGroup[] = [
   },
 ];
 
+const ruleActions = (enabled: boolean): NonNullable<AlertRule['availableActions']> => [
+  { code: 'edit', label: 'Modifier' },
+  { code: enabled ? 'disable' : 'enable', label: enabled ? 'Désactiver' : 'Activer' },
+  { code: 'delete', label: 'Supprimer', style: 'danger' },
+];
+const withActions = (r: AlertRule): AlertRule => ({ ...r, availableActions: ruleActions(r.enabled ?? true) });
+
 let ALERT_RULES: AlertRule[] = [
   { id: '00000000-0000-0000-0000-0000000000c1', label: 'CBS indisponible', eventCode: 'CTN-INT-0102', threshold: 5, window: 'PT10M', channels: ['IN_APP', 'EMAIL'], enabled: true },
 ];
@@ -300,7 +307,7 @@ export const alertsHandlers = [
   }),
   http.get('*/api/admin/alert-rules', () => {
     if (errorsMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
-    return HttpResponse.json(ALERT_RULES);
+    return HttpResponse.json(ALERT_RULES.map(withActions));
   }),
   http.post('*/api/admin/alert-rules', async ({ request }) => {
     const rule: AlertRule = { ...((await request.json()) as AlertRule), id: crypto.randomUUID() };
