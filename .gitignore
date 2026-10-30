@@ -40,3 +40,8 @@ Thumbs.db
 e2e/cypress/screenshots/
 e2e/cypress/videos/
 e2e/cypress/downloads/
+
+# Cypress local secrets (credentials)
+cypress.env.json
+**/cypress.env.json
+.operations.bundled.yaml
