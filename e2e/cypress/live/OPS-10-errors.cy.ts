@@ -2,17 +2,38 @@
  * OPS-10 — Erreurs et alertes, mode live (vrai backend, session Keycloak). Aucune donnée supposée : la règle
  * de test est créée avec un libellé unique, modifiée, (dés)activée puis supprimée (la base reste inchangée).
  */
+const E2E_PREFIX = 'E2E règle';
 const rulesTab = () => cy.contains('[role=tab]', "Règles d'alerte").click();
 const rowOf = (label: string) => cy.contains('[data-cy=rule-row]', label);
 
+/** Deletes every leftover test rule (label starting with the E2E prefix) through the UI, so a failed run leaves nothing behind. */
+const purgeE2eRules = (): void => {
+  rulesTab();
+  cy.get('[data-cy=rule-form]').should('exist');
+  const next = (): void => {
+    cy.get('body').then(($b) => {
+      const rows = $b.find('[data-cy=rule-row]').filter((_, el) => (el.textContent ?? '').includes(E2E_PREFIX));
+      if (rows.length === 0) return;
+      const before = $b.find('[data-cy=rule-row]').length;
+      cy.wrap(rows.first()).find('[data-cy=rule-delete]').click();
+      cy.get('[data-cy=rule-row]').should('have.length.lessThan', before).then(next);
+    });
+  };
+  next();
+};
+
 describe('OPS-10 — Erreurs et alertes (live)', () => {
-  const label = `E2E règle ${Date.now()}`;
+  const label = `${E2E_PREFIX} ${Date.now()}`;
+
 
   beforeEach(() => {
     cy.viewport(1280, 800);
     cy.loginKeycloak();
     cy.visit('/errors');
   });
+
+  // cleanup runs as first and last test (hooks lose the cached session): a failed run leaves nothing behind
+  it('purge: removes leftover test rules (before)', purgeE2eRules);
 
   it('charge les erreurs et les règles sans erreur', () => {
     cy.get('[data-cy=errors-error]').should('not.exist');
@@ -44,4 +65,6 @@ describe('OPS-10 — Erreurs et alertes (live)', () => {
     rowOf(`${label} v2`).find('[data-cy=rule-delete]').click();
     cy.contains('[data-cy=rule-row]', `${label} v2`).should('not.exist');
   });
+
+  it('purge: removes leftover test rules (after)', purgeE2eRules);
 });
