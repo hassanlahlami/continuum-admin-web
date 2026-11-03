@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { Observable, catchError, switchMap, tap, throwError } from 'rxjs';
 import {
+  AuthApp,
   AuthProblem,
   LoginOptions,
   LoginResult,
@@ -10,6 +11,9 @@ import {
   SessionService,
   SessionState,
 } from '../../../libs/api-clients/auth';
+
+/** Front désigné auprès du BFF (cookie `CT_ADMIN_SESSION`, client `continuum-admin-bff`). */
+const APP: AuthApp = 'admin';
 
 /** Code du tenant (issu de `config.json`) transmis au BFF ; à défaut, il résout par le nom d'hôte. */
 export const AUTH_ENTITY = new InjectionToken<string>('AUTH_ENTITY', { providedIn: 'root', factory: () => '' });
@@ -50,12 +54,12 @@ export class AuthFacade {
 
   /** Charge l'état de session et pose le cookie CSRF. */
   refresh(): Observable<SessionState> {
-    return this.sessionApi.getSession().pipe(tap((s) => this.session.set(s)));
+    return this.sessionApi.getSession(APP).pipe(tap((s) => this.session.set(s)));
   }
 
   signIn(username: string, password: string): Observable<LoginResult> {
     return this.withCsrfRetry(() =>
-      this.loginApi.login(readXsrfCookie(), { entity: this.entity, username, password }),
+      this.loginApi.login(readXsrfCookie(), { app: APP, entity: this.entity, username, password }),
     ).pipe(tap((r) => this.track(r)));
   }
 
@@ -66,14 +70,14 @@ export class AuthFacade {
   }
 
   signOut(): Observable<unknown> {
-    return this.withCsrfRetry(() => this.sessionApi.logout(readXsrfCookie())).pipe(
+    return this.withCsrfRetry(() => this.sessionApi.logout(readXsrfCookie(), APP)).pipe(
       tap(() => this.session.set({ authenticated: false })),
     );
   }
 
   /** Navigation (pas XHR) vers le Code + PKCE terminé par le BFF. */
   redirectLoginUrl(returnTo: string, idp?: string): string {
-    const q = new URLSearchParams({ returnTo: safeReturnTo(returnTo) });
+    const q = new URLSearchParams({ app: APP, returnTo: safeReturnTo(returnTo) });
     if (this.entity) q.set('entity', this.entity);
     if (idp) q.set('idp', idp);
     return `/api/auth/authorize?${q.toString()}`;
@@ -81,7 +85,7 @@ export class AuthFacade {
 
   /** Navigation (pas XHR) vers le step-up (`acr` supérieur), terminé par le BFF. */
   stepUpUrl(acr: number, returnTo: string): string {
-    return `/api/auth/step-up?${new URLSearchParams({ acr: String(acr), returnTo: safeReturnTo(returnTo) })}`;
+    return `/api/auth/step-up?${new URLSearchParams({ app: APP, acr: String(acr), returnTo: safeReturnTo(returnTo) })}`;
   }
 
   private track(r: LoginResult): void {
@@ -92,7 +96,7 @@ export class AuthFacade {
     return call().pipe(
       catchError((err: HttpErrorResponse) =>
         problemOf(err)?.reason === 'csrf-invalid'
-          ? this.sessionApi.getSession().pipe(switchMap(() => call()))
+          ? this.sessionApi.getSession(APP).pipe(switchMap(() => call()))
           : throwError(() => err),
       ),
     );

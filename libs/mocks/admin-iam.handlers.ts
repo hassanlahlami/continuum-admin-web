@@ -272,7 +272,7 @@ const CHANGE_REQUESTS: ChangeRequest[] = [
 ];
 const crMode = () => globalThis.localStorage?.getItem('ct-mock-change-requests');
 
-/** Entités (tenants) de démonstration (ADM-02) ; surcharge localStorage `ct-mock-entities` : forbidden, error, invalid, conflict. */
+/** Entités (tenants) de démonstration (ADM-02) ; surcharge localStorage `ct-mock-entities` : forbidden, step-up (401 step-up-required), error, invalid, conflict. */
 const ENTITIES: Entity[] = [
   { id: 'e2000000-0000-0000-0000-000000000001', code: 'BANQUE-DEMO', label: 'Banque Démo — Maison mère', status: 'ACTIVE', keycloakRealm: 'banque-demo', dataIsolation: 'SCHEMA', packCode: 'PACK-BANQUE', enabledModules: ['AUDIT', 'CCM', 'REPORTING'], locales: ['fr', 'ar'], defaultLocale: 'fr', usersCount: 42 },
   { id: 'e2000000-0000-0000-0000-000000000002', code: 'BANQUE-DEMO-FILIALE-01', label: 'Banque Démo — Filiale Leasing', status: 'SUSPENDED', keycloakRealm: 'banque-demo-filiale-01', dataIsolation: 'PDB', packCode: 'PACK-BANQUE', enabledModules: ['AUDIT'], locales: ['fr'], defaultLocale: 'fr', usersCount: 7 },
@@ -286,6 +286,9 @@ export const adminIamHandlers = [
   // Entités (ADM-02) : lecture et création (Job 202 : schéma/PDB, realm, pack ; le serveur valide, 422 si code vide ou en double).
   http.get('*/api/admin/entities', () => {
     if (entityMode() === 'forbidden') return new HttpResponse(null, { status: 403 });
+    if (entityMode() === 'step-up') {
+      return HttpResponse.json({ reason: 'step-up-required', requiredAcr: 2, status: 401, title: 'Step-up required' }, { status: 401, headers: { 'content-type': 'application/problem+json' } });
+    }
     if (entityMode() === 'error') return new HttpResponse(null, { status: 500 });
     return HttpResponse.json(ENTITIES);
   }),
