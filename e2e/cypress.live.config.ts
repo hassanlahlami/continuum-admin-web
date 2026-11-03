@@ -13,6 +13,6 @@ export default defineConfig({
     fixturesFolder: false,
     video: false,
     screenshotOnRunFailure: false,
-    env: { KEYCLOAK_ORIGIN: 'http://localhost:8180' },
+    
   },
 });

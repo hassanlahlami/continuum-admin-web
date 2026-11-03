@@ -1,6 +1,7 @@
 /**
  * ADM-05 — Utilisateur : fiche, mode live (vrai backend, session Keycloak). L'utilisateur est retrouvé
  * dans l'annuaire réel (aucune donnée de mock supposée) ; actions non destructives uniquement.
+ * POST /directory/sync est exclu : le backend répond 503 (pas de connecteur AD) ; ne jamais cliquer users-sync-trigger ici.
  */
 describe('ADM-05 — Utilisateur (fiche, live)', () => {
   beforeEach(() => {

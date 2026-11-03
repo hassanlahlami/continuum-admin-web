@@ -40,3 +40,11 @@ reporter toute évolution dans les deux. Prérequis : Node ≥ 20.
 
 Contrats : `../Instructions/contracts/`. Plan : `../Instructions/plan-plateforme-audit-interne-erp.md`
 (§1.2/§4.4.2). Suivi : `../Instructions/docs/suivi/`.
+
+## D41 auth migration plan (BFF cookie session)
+Admin stays `login.mode=redirect`. Swap, once the backend BFF lands (angular-oauth2-oidc stays until then):
+1. `auth.interceptor.ts`: drop Bearer; `withCredentials` + `X-XSRF-TOKEN` (from `XSRF-TOKEN` cookie) on unsafe `/api/` requests; on 403 `csrf-invalid` re-read cookie, replay once.
+2. Bootstrap: `GET /api/auth/session` (sets CSRF cookie) replaces OAuthService init; unauthenticated -> navigate to `/api/auth/authorize?returnTo=`.
+3. 401 `reason: step-up-required` -> navigate to `/api/auth/step-up?acr=<requiredAcr>&returnTo=<current>` (never via REST); `session-expired`/`unauthenticated` -> authorize.
+4. Logout: `POST /api/auth/logout`. Then remove angular-oauth2-oidc.
+Client: `npm run generate:auth` (libs/api-clients/auth); mocks: `libs/mocks/auth.handlers.ts`.
