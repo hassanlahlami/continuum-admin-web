@@ -18,14 +18,14 @@ Cypress.Commands.add('loginKeycloak', () => {
   cy.session(
     ['bff', user],
     () => {
-      cy.request('GET', '/api/auth/session')
+      cy.request('GET', '/api/auth/session?app=admin')
         .then(() => cy.getCookie('XSRF-TOKEN'))
         .then((xsrf) => {
           if (!xsrf) throw new Error('XSRF-TOKEN cookie not set by GET /api/auth/session');
           return cy.request({
             method: 'POST', url: '/api/auth/login',
             headers: { 'X-XSRF-TOKEN': decodeURIComponent(xsrf.value) },
-            body: { entity: Cypress.env('ADM_ENTITY') ?? 'dss', username: user, password },
+            body: { app: 'admin', entity: Cypress.env('ADM_ENTITY') ?? 'dss', username: user, password },
           });
         })
         .then((res) => {
