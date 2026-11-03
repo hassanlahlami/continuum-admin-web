@@ -8,7 +8,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { OAuthService } from 'angular-oauth2-oidc';
+import { AuthFacade } from './auth/auth.facade';
 import { map } from 'rxjs/operators';
 
 /**
@@ -175,6 +175,7 @@ import { map } from 'rxjs/operators';
           </button>
           @if (displayName(); as name) {
             <div class="user" data-cy="app-user"><strong>{{ name }}</strong><span>Admin Système</span></div>
+            <button mat-icon-button (click)="signOut()" data-cy="logout" aria-label="Se déconnecter"><mat-icon>logout</mat-icon></button>
           }
         </mat-toolbar>
         <main class="content"><router-outlet /></main>
@@ -221,7 +222,7 @@ import { map } from 'rxjs/operators';
   ],
 })
 export class AppComponent {
-  private readonly oauth = inject(OAuthService);
+  private readonly auth = inject(AuthFacade);
   private readonly router = inject(Router);
   readonly theme = signal<'auto' | 'light' | 'dark'>(this.readTheme());
   /** Barre latérale repliée en rail d'icônes (bureau) ; persistée par navigateur. */
@@ -246,8 +247,11 @@ export class AppComponent {
   }
 
   displayName(): string | null {
-    const claims = this.oauth.getIdentityClaims() as { name?: string; preferred_username?: string } | null;
-    return claims?.name ?? claims?.preferred_username ?? null;
+    return this.auth.session().displayName ?? null;
+  }
+
+  signOut(): void {
+    this.auth.signOut().subscribe({ complete: () => void this.router.navigate(['/login']), error: () => void this.router.navigate(['/login']) });
   }
 
   /** Mobile : ouvre/ferme le tiroir. Bureau : replie/déploie le rail (persisté). */

@@ -1,4 +1,6 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './auth/auth.guard';
+import { LoginPage } from './pages/login.page';
 import { AssignPositionPage } from './pages/assign-position.page';
 import { AuditTrailPage } from './pages/audit-trail.page';
 import { AuthzSimulatorPage } from './pages/authz-simulator.page';
@@ -22,7 +24,7 @@ import { UserDetailPage } from './pages/user-detail.page';
 import { UsersPage } from './pages/users.page';
 
 /** Routage de l'Admin Système : utilisateurs (annuaire, profil, création), affectations, piste d'audit. */
-export const routes: Routes = [
+const guarded: Routes = [
   { path: '', component: OverviewPage },
   { path: 'entities', component: EntitiesPage },
   { path: 'entities/:entityId', component: EntityDetailPage },
@@ -45,4 +47,9 @@ export const routes: Routes = [
   { path: 'traces/:traceId', component: TracePage },
   { path: 'authz-simulator', component: AuthzSimulatorPage },
   { path: '**', redirectTo: '' },
+];
+
+export const routes: Routes = [
+  { path: 'login', component: LoginPage },
+  { path: '', canActivateChild: [authGuard], children: guarded },
 ];

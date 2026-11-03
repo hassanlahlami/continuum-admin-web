@@ -25,7 +25,7 @@ Cypress.Commands.add('loginKeycloak', () => {
           return cy.request({
             method: 'POST', url: '/api/auth/login',
             headers: { 'X-XSRF-TOKEN': decodeURIComponent(xsrf.value) },
-            body: { username: user, password },
+            body: { entity: Cypress.env('ADM_ENTITY') ?? 'dss', username: user, password },
           });
         })
         .then((res) => {
