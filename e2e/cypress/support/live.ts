@@ -17,6 +17,14 @@ declare global {
  * Keycloak refuse un code réutilisé dans la même fenêtre de 30 s : on attend la fenêtre suivante entre deux logins.
  */
 let lastWindow = -1;
+/** Session must be authenticated at step-up level acr=2 (a bare 200 also comes back when anonymous). */
+const assertAuthenticated = () => {
+  cy.request('/api/auth/session?app=admin').then((r) => {
+    expect(r.status).to.eq(200);
+    expect(r.body.authenticated, 'authenticated').to.eq(true);
+    expect(Number(r.body.acr), 'acr').to.eq(2);
+  });
+};
 Cypress.Commands.add('loginKeycloak', () => {
   const username = Cypress.env('SIM_USERNAME') ?? 'dsi.admin';
   const password = Cypress.env('SIM_USER_PASSWORD');
@@ -66,9 +74,9 @@ Cypress.Commands.add('loginKeycloak', () => {
             });
         })
         .then((r) => follow(new URL(r.headers['location'] as string, kc).toString()));
-      cy.request('/api/auth/session').its('status').should('eq', 200);
+      assertAuthenticated();
     },
-    { cacheAcrossSpecs: true },
+    { cacheAcrossSpecs: true, validate: assertAuthenticated },
   );
 });
 
