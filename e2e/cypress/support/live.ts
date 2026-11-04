@@ -10,30 +10,63 @@ declare global {
   }
 }
 
-/** Login BFF (D41) : GET /api/auth/session pose le cookie XSRF-TOKEN, puis POST /api/auth/login (X-XSRF-TOKEN) pose le cookie de session HttpOnly ; cy.session conserve les cookies. */
+/**
+ * Login Code+PKCE admin (ADR 0014) : GET /api/auth/authorize?app=admin demande acr=2 ; la page Keycloak (cross-origin)
+ * est pilotée par cy.request (sans cy.origin) : formulaires soumis à la main, puis code username/password puis le code TOTP calculé ici. Secrets uniquement via l'environnement
+ * (CYPRESS_SIM_USERNAME, CYPRESS_SIM_USER_PASSWORD, CYPRESS_SIM_TOTP_SECRET_BASE32), jamais committés.
+ * Keycloak refuse un code réutilisé dans la même fenêtre de 30 s : on attend la fenêtre suivante entre deux logins.
+ */
+let lastWindow = -1;
 Cypress.Commands.add('loginKeycloak', () => {
-  const user = Cypress.env('ADM_USER') ?? 'dsi.admin';
-  const password = Cypress.env('ADM_PASSWORD');
-  if (!password) throw new Error('CYPRESS_ADM_PASSWORD is required for live specs');
+  const username = Cypress.env('SIM_USERNAME') ?? 'dsi.admin';
+  const password = Cypress.env('SIM_USER_PASSWORD');
+  const secret = Cypress.env('SIM_TOTP_SECRET_BASE32');
+  if (!password || !secret) throw new Error('CYPRESS_SIM_USER_PASSWORD and CYPRESS_SIM_TOTP_SECRET_BASE32 are required for live specs');
   cy.session(
-    ['bff', user],
+    ['bff-code', username],
     () => {
-      cy.request('GET', '/api/auth/session')
-        .then(() => cy.getCookie('XSRF-TOKEN'))
-        .then((xsrf) => {
-          if (!xsrf) throw new Error('XSRF-TOKEN cookie not set by GET /api/auth/session');
-          return cy.request({
-            method: 'POST', url: '/api/auth/login',
-            headers: { 'X-XSRF-TOKEN': decodeURIComponent(xsrf.value) },
-            body: { entity: Cypress.env('ADM_ENTITY') ?? 'dss', username: user, password },
-          });
-        })
-        .then((res) => {
-          expect(res.status).to.eq(200);
-          expect(res.body.status, 'login status').to.eq('AUTHENTICATED');
+      const entity = Cypress.env('ADM_ENTITY') ?? 'dss';
+      // Code+PKCE driven with cy.request (no cy.origin): follow redirects by hand, submit Keycloak's HTML forms.
+      const kc = Cypress.env('SIM_KC_URL') ?? 'http://localhost:8180';
+      const formAction = (html: string) => {
+        const m = /<form[^>]*action="([^"]+)"/.exec(html);
+        if (!m) throw new Error('Keycloak form not found');
+        return m[1].replace(/&amp;/g, '&');
+      };
+      // follow 3xx until the BFF callback lands back on the app (cookies are kept by the browser jar)
+      const follow = (url: string): Cypress.Chainable<any> =>
+        cy.request({ url, followRedirect: false, failOnStatusCode: false }).then((r) => {
+          const loc = r.headers['location'] as string | undefined;
+          if (r.status >= 300 && r.status < 400 && loc) return follow(new URL(loc, url).toString());
+          return cy.wrap(r);
         });
-      cy.visit('/');
-      cy.get('[data-cy]', { timeout: 20000 }).should('exist');
+      const base = Cypress.config('baseUrl') as string;
+      cy.request({ url: `${base}/api/auth/authorize?app=admin&entity=${entity}&returnTo=%2F`, followRedirect: false })
+        .then((r) => new URL(r.headers['location'] as string, base).toString())
+        .then((loginUrl) => cy.request({ url: loginUrl }))
+        .then((page) =>
+          cy.request({ method: 'POST', url: formAction(page.body as string), form: true, followRedirect: false,
+            body: { username, password, credentialId: '' } }),
+        )
+        .then((r) => {
+          // Keycloak answers 200 with the OTP form inline, or 302 to it
+          const loc = r.headers['location'] as string | undefined;
+          return loc ? cy.request({ url: new URL(loc, kc).toString() }) : cy.wrap(r);
+        })
+        .then((otpPage) => {
+          const action = formAction(otpPage.body as string);
+          const win = Math.floor(Date.now() / 30000);
+          const wait = win <= lastWindow ? 30000 - (Date.now() % 30000) + 500 : 0; // code reuse refused per window
+          return cy.wait(wait, { log: false })
+            .then(() => cy.wrap(import('otplib').then((m) => m.generate({ secret })), { log: false }))
+            .then((code) => {
+              lastWindow = Math.floor(Date.now() / 30000);
+              return cy.request({ method: 'POST', url: action, form: true, followRedirect: false,
+                body: { otp: code, login: 'Sign In' }, log: false });
+            });
+        })
+        .then((r) => follow(new URL(r.headers['location'] as string, kc).toString()));
+      cy.request('/api/auth/session').its('status').should('eq', 200);
     },
     { cacheAcrossSpecs: true },
   );
