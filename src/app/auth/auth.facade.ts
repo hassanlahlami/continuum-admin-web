@@ -83,6 +83,11 @@ export class AuthFacade {
     return `/api/auth/authorize?${q.toString()}`;
   }
 
+  /** Navigation (pas XHR) : action Keycloak initiée par l'app (ADR 0014 c), ex. changement de mot de passe. */
+  actionUrl(action: 'update-password', returnTo: string): string {
+    return `/api/auth/authorize?${new URLSearchParams({ app: APP, action, returnTo: safeReturnTo(returnTo) })}`;
+  }
+
   /** Navigation (pas XHR) vers le step-up (`acr` supérieur), terminé par le BFF. */
   stepUpUrl(acr: number, returnTo: string): string {
     return `/api/auth/step-up?${new URLSearchParams({ app: APP, acr: String(acr), returnTo: safeReturnTo(returnTo) })}`;
