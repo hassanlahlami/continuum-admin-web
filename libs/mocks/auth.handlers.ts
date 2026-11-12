@@ -72,6 +72,8 @@ export const authHandlers = [
   http.get('*/api/auth/authorize', ({ request }) => {
     const returnTo = new URL(request.url).searchParams.get('returnTo') ?? '/';
     if (!returnTo.startsWith('/') || returnTo.startsWith('//')) return problem(400, 'unauthenticated', 'Bad request');
+    const action = new URL(request.url).searchParams.get('action');
+    if (action !== null && action !== 'update-password') return problem(400, 'unauthenticated', 'Bad request');
     session = authed(2);
     return redirect(request);
   }),

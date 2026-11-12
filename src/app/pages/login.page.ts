@@ -54,6 +54,7 @@ type Step = 'credentials' | 'mfa';
           <button mat-flat-button type="button" (click)="redirect()" data-cy="login-redirect">Se connecter</button>
         }
         @if (step() === 'credentials') {
+          <a class="forgot" [href]="forgotUrl()" data-cy="forgot-password">Mot de passe oublié ?</a>
           @for (p of o.ssoProviders; track p.alias) {
             <button mat-stroked-button type="button" (click)="redirect(p.alias)" [attr.data-cy]="'login-sso-' + p.alias">
               {{ p.label.fr }}
@@ -117,6 +118,11 @@ export class LoginPage implements OnInit {
   submitMfa(): void {
     if (this.mfaForm.invalid || this.busy()) return;
     this.run(this.auth.verifyMfa(this.challengeId, this.mfaForm.getRawValue().code));
+  }
+
+  /** Le « mot de passe oublié » est porté par la page Keycloak, atteinte via /authorize. */
+  forgotUrl(): string {
+    return this.auth.redirectLoginUrl(this.returnTo);
   }
 
   redirect(idp?: string): void {

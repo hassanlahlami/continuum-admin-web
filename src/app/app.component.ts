@@ -175,6 +175,7 @@ import { map } from 'rxjs/operators';
           </button>
           @if (displayName(); as name) {
             <div class="user" data-cy="app-user"><strong>{{ name }}</strong><span>Admin Système</span></div>
+            <a mat-icon-button [href]="changePasswordUrl()" data-cy="change-password" aria-label="Changer le mot de passe"><mat-icon>key</mat-icon></a>
             <button mat-icon-button (click)="signOut()" data-cy="logout" aria-label="Se déconnecter"><mat-icon>logout</mat-icon></button>
           }
         </mat-toolbar>
@@ -248,6 +249,10 @@ export class AppComponent {
 
   displayName(): string | null {
     return this.auth.session().displayName ?? null;
+  }
+
+  changePasswordUrl(): string {
+    return this.auth.actionUrl('update-password', this.router.url);
   }
 
   signOut(): void {
