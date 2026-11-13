@@ -5,6 +5,7 @@ import { AssignPositionPage } from './pages/assign-position.page';
 import { AuditTrailPage } from './pages/audit-trail.page';
 import { AuthzSimulatorPage } from './pages/authz-simulator.page';
 import { CachesPage } from './pages/caches.page';
+import { ConnectorDetailPage } from './pages/connector-detail.page';
 import { ConnectorsPage } from './pages/connectors.page';
 import { ErrorsPage } from './pages/errors.page';
 import { EntityDetailPage } from './pages/entity-detail.page';
@@ -40,6 +41,7 @@ const guarded: Routes = [
   { path: 'assignments', component: AssignPositionPage },
   { path: 'audit-trail', component: AuditTrailPage },
   { path: 'connectors', component: ConnectorsPage },
+  { path: 'connectors/:connectorId', component: ConnectorDetailPage },
   { path: 'caches', component: CachesPage },
   { path: 'health', component: HealthPage },
   { path: 'errors', component: ErrorsPage },
