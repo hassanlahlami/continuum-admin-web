@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
+import { RouterLink } from '@angular/router';
 import {
   AvailableAction,
   Connector,
@@ -32,6 +33,7 @@ import {
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
+    RouterLink,
   ],
   template: `
     <section>
@@ -78,7 +80,7 @@ import {
       @if (selected(); as c) {
         <mat-card appearance="outlined" class="detail" data-cy="connector-detail">
           <mat-card-content>
-            <h2>{{ c.code }}</h2>
+            <h2>{{ c.code }} <a [routerLink]="['/connectors', c.id]" class="open" data-cy="connector-open">Configuration, mapping et journal →</a></h2>
             <p class="muted">
               {{ c.kind }}{{ c.erpType ? ' · ' + c.erpType : '' }} · timeout {{ c.timeoutMs ?? '—' }} ms
               @if (c.lastTestResult; as t) {
@@ -141,6 +143,7 @@ import {
       .error { color: var(--ct-red-700); }
       tr.clickable { cursor: pointer; }
       tr.clickable:hover, tr.selected { background: var(--ct-color-primary-soft); }
+      .open { font-size: 0.8rem; font-weight: 400; margin-left: var(--ct-space-3); }
       .health { font-weight: 600; }
       .health[data-health='UP'] { color: var(--ct-green-600); }
       .health[data-health='DOWN'] { color: var(--ct-red-700); }

@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import type {
-  AlertRule, ErrorGroup, AuditEventPage, ComponentHealth, ScheduledJob, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
+  AlertRule, ConnectorMapping, ErrorGroup, GetCanonicalModel200ResponseInner, AuditEventPage, ComponentHealth, ScheduledJob, CacheRegion, Connector, ConnectorExecutionPage, EvictionResult, Job, ListSavedLogQueries200ResponseInner,
   LogLevelOverride, LogQuery, LogResultPage, SaveLogQueryRequest, Trace,
 } from '../api-clients/operations';
 
@@ -74,11 +74,29 @@ const CONNECTORS: Connector[] = [
   },
 ];
 const EXECUTIONS: ConnectorExecutionPage = {
-  page: 0, size: 20, totalItems: 2, totalPages: 1,
+  page: 0, size: 20, totalItems: 3, totalPages: 1,
   items: [
     { at: '2026-02-03T09:00:00Z', operation: 'pullAccounts', outcome: 'SUCCESS', durationMs: 412, records: 1280 },
     { at: '2026-02-03T08:00:00Z', operation: 'pullAccounts', outcome: 'RETRIED', durationMs: 5120, records: 1280 },
+    { at: '2026-02-03T07:00:00Z', operation: 'pullBalances', outcome: 'FAILED', durationMs: 8420, records: 0, eventCode: 'CTN-INT-0102', traceId: '4bf92f3577b34da6a3ce929d0e0e4736' },
   ],
+};
+
+/** Modèle canonique déclaré par le pack (D35) et mapping courant du connecteur (OPS-02). */
+const CANONICAL: GetCanonicalModel200ResponseInner[] = [
+  { entity: 'ACCOUNT', label: 'Compte', packCode: 'pack-demo', fields: [
+    { name: 'accountNumber', label: 'Numéro de compte', type: 'STRING', required: true },
+    { name: 'balance', label: 'Solde', type: 'MONEY', required: true },
+    { name: 'openedOn', label: "Date d'ouverture", type: 'DATE' },
+  ] },
+];
+let MAPPING: ConnectorMapping = {
+  version: 1,
+  entities: [{ canonicalEntity: 'ACCOUNT', source: 'ACCOUNTS', fields: [
+    { canonicalField: 'accountNumber', sourceField: 'ACC_NO' },
+    { canonicalField: 'balance', sourceField: 'BAL', transform: 'decimal(2)' },
+    { canonicalField: 'openedOn', sourceField: '' },
+  ] }],
 };
 
 /** Régions de cache Ehcache (OPS-07) : entrées, mémoire, taux de succès, dernière purge, état par instance. */
@@ -248,6 +266,23 @@ export const operationsHandlers = [
     return HttpResponse.json(page);
   }),
   http.get('*/api/admin/connectors', () => HttpResponse.json(CONNECTORS)),
+  http.get('*/api/admin/canonical-model', () => HttpResponse.json(CANONICAL)),
+  http.get('*/api/admin/connectors/:id', ({ params }) => {
+    const c = CONNECTORS.find((x) => x.id === params['id']);
+    return c ? HttpResponse.json(c) : new HttpResponse(null, { status: 404 });
+  }),
+  http.put('*/api/admin/connectors/:id', async ({ params, request }) => {
+    const c = CONNECTORS.find((x) => x.id === params['id']);
+    if (!c) return new HttpResponse(null, { status: 404 });
+    Object.assign(c, await request.json(), { version: (c.version ?? 0) + 1 });
+    return HttpResponse.json(c);
+  }),
+  http.get('*/api/admin/connectors/:id/mapping', () => HttpResponse.json(MAPPING)),
+  http.put('*/api/admin/connectors/:id/mapping', async ({ request }) => {
+    const body = (await request.json()) as ConnectorMapping;
+    MAPPING = { ...body, version: MAPPING.version + 1 };
+    return HttpResponse.json(MAPPING);
+  }),
   http.get('*/api/admin/connectors/:id/executions', () => HttpResponse.json(EXECUTIONS)),
   http.post('*/api/admin/connectors/:id/actions/:code', async ({ params }) => {
     const c = CONNECTORS.find((x) => x.id === params['id']);

@@ -15,7 +15,7 @@ describe('OPS-CONN-01 — Connecteurs', () => {
     cy.visit('/connectors');
     cy.get('[data-cy=connector-row]').first().click();
     cy.get('[data-cy=connector-detail]').should('contain', 'ERP-CORE');
-    cy.get('[data-cy=execution-row]').should('have.length', 2);
+    cy.get('[data-cy=execution-row]').should('have.length', 3);
   });
 
   it('teste la connexion, et exige un motif pour désactiver', () => {
